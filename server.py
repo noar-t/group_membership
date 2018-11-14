@@ -1,17 +1,76 @@
+import argparse
 import socket
+import selectors
+import types
+
+sel = selectors.DefaultSelector()
 
 def main():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(('localhost', 51519))
-    s.listen(1)
-    conn, addr = s.accept()
+    args = build_args()
 
-    while 1:
-        data = conn.recv(1024)
-        if not data:
-            break
-        conn.sendall(data)
-        conn.close()
+    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    lsock.bind((args.host, args.port))
+
+    # Need to listen for either a membership update or
+    # a new group by TCP broadcast
+    lsock.listen()
+    print('listening on', (args.host, args.port))
+    lsock.setblocking(False)
+    sel.register(lsock, selectors.EVENT_READ, data=None)
+
+    # Basic event loop
+    while True:
+        # TODO change timout to be variable
+        events = sel.select(timeout=999999)
+        for key, mask in events:
+            if key.data is None:
+                accept_wrapper(key.fileobj)
+            else:
+                service_connection(key, mask)
+
+def service_connection(key, mask):
+    sock = key.fileobj
+    data = key.data
+
+    #print(key)
+    if mask & selectors.EVENT_READ:
+        print('read')
+    if mask & selectors.EVENT_WRITE:
+        print('write')
+
+    if mask & selectors.EVENT_READ:
+        recv_data = sock.recv(1024)  # Should be ready to read
+        if recv_data:
+            data.outb += recv_data
+        else:
+            print('closing connection to', data.addr)
+            sel.unregister(sock)
+            sock.close()
+
+    if mask & selectors.EVENT_WRITE:
+        if data.outb:
+            print('echoing', repr(data.outb), 'to', data.addr)
+            sent = sock.send(data.outb)  # Should be ready to write
+            data.outb = data.outb[sent:]
+
+def accept_wrapper(sock):
+    conn, addr = sock.accept()  # Should be ready to read
+    print('accepted connection from', addr)
+    conn.setblocking(False)
+    data = types.SimpleNamespace(addr=addr, inb=b'', outb=b'')
+    events = selectors.EVENT_READ | selectors.EVENT_WRITE
+    sel.register(conn, events, data=data)
+
+def build_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--host', type=str,
+                        help='The host in which to run the listening server on.')
+
+    parser.add_argument('-p', '--port', type=int,
+                        help='Port to accept requests on.')
+
+    return parser.parse_args()
 
 if __name__ == '__main__':
     main()
