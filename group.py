@@ -1,12 +1,13 @@
+from enum import Enum
 
-class(object):
-    def __init__(self, leader):
-        self.leader = leader
-        self.members = list()
+class RType(Enum):
+    CHECK_IN = 0
+    NEW_GROUP = 1
 
-    @property
-    def leader(self):
-        return self.leader
+
+class Group(object):
+    def __init__(self, members):
+        self.members = members
 
     @property
     def members(self):

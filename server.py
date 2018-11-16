@@ -2,75 +2,92 @@ import argparse
 import socket
 import selectors
 import types
+import pickle
+import time
 
-sel = selectors.DefaultSelector()
 
 def main():
     args = build_args()
+    event_loop(args.port)
 
-    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    lsock.bind((args.host, args.port))
+def event_loop(port):
+    selector = selectors.DefaultSelector()
 
     # Need to listen for either a membership update or
     # a new group by TCP broadcast
-    lsock.listen()
-    print('listening on', (args.host, args.port))
-    lsock.setblocking(False)
-    sel.register(lsock, selectors.EVENT_READ, data=None)
+    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    host = socket.gethostname()
+    server_sock.bind((host, port))
+    server_sock.listen()
+    print('listening on', (host, port))
+    server_sock.setblocking(False)
+
+    selector.register(server_sock, selectors.EVENT_READ, data=None)
 
     # Basic event loop
     while True:
         # TODO change timout to be variable
-        events = sel.select(timeout=999999)
-        for key, mask in events:
-            if key.data is None:
-                accept_wrapper(key.fileobj)
-            else:
-                service_connection(key, mask)
+        events = selector.select(timeout=5)
+        print('event triggered')
 
-def service_connection(key, mask):
+        if len(events) == 0:
+            print('timeout')
+            #TODO Broadcast to all hosts
+        else:
+            for key, mask in events:
+                if key.data is None:
+                    accept_new_connection(selector, key.fileobj)
+                else:
+                    service_connection(selector, key, mask)
+
+def service_connection(sel, key, mask):
+    print('Key: ' + repr(dir(key.fileobj)))
     sock = key.fileobj
     data = key.data
 
-    #print(key)
     if mask & selectors.EVENT_READ:
-        print('read')
-    if mask & selectors.EVENT_WRITE:
-        print('write')
-
-    if mask & selectors.EVENT_READ:
+        print('DEBUG EVENT_READ')
+        #if data.request_type is None:
+        #Todo recieve request type first
         recv_data = sock.recv(1024)  # Should be ready to read
         if recv_data:
-            data.outb += recv_data
+            data.msg += recv_data
+            print('recieved: ' + repr(recv_data))
         else:
-            print('closing connection to', data.addr)
+            print('TODO closing connection to', data.addr)
+            print('TODO recieved: ' + repr(data.msg))#pickle.loads(data.msg)))
             sel.unregister(sock)
             sock.close()
 
     if mask & selectors.EVENT_WRITE:
-        if data.outb:
-            print('echoing', repr(data.outb), 'to', data.addr)
-            sent = sock.send(data.outb)  # Should be ready to write
-            data.outb = data.outb[sent:]
+        if data.request_type is None:
+            data.request_type = data.msg
+            data.msg = b''
+            #time.sleep(10)
+            sock.sendall(b'recieved')
+            print('DEBUG EVENT_WRITE')
+            print('DEBUG selector: ' + repr(sel))
+            print('DEBUG key: ' + repr(key))
 
-def accept_wrapper(sock):
+def accept_new_connection(selector, sock):
     conn, addr = sock.accept()  # Should be ready to read
-    print('accepted connection from', addr)
     conn.setblocking(False)
-    data = types.SimpleNamespace(addr=addr, inb=b'', outb=b'')
+    print('accepted connection from', addr)
+
+    data = types.SimpleNamespace(addr=addr, msg=b'', request_type=None)
+
+    # TODO setup write for new group request
     events = selectors.EVENT_READ | selectors.EVENT_WRITE
-    sel.register(conn, events, data=data)
+    selector.register(conn, events, data=data)
 
 def build_args():
     parser = argparse.ArgumentParser()
-
-    parser.add_argument('--host', type=str,
-                        help='The host in which to run the listening server on.')
 
     parser.add_argument('-p', '--port', type=int,
                         help='Port to accept requests on.')
 
     return parser.parse_args()
+
 
 if __name__ == '__main__':
     main()
