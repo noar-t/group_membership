@@ -1,0 +1,3 @@
+[submodule "atomic_broadcast"]
+	path = atomic_broadcast
+	url = https://github.com/noar-t/atomic_broadcast
