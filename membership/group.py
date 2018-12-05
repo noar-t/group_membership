@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class RType(Enum):
     CHECK_IN = 0
     NEW_GROUP = 1

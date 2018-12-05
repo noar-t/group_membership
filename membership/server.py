@@ -10,6 +10,7 @@ def main():
     args = build_args()
     event_loop(args.port)
 
+
 def event_loop(port):
     selector = selectors.DefaultSelector()
 
@@ -40,6 +41,7 @@ def event_loop(port):
                 else:
                     service_connection(selector, key, mask)
 
+
 def service_connection(sel, key, mask):
     print('Key: ' + repr(dir(key.fileobj)))
     sock = key.fileobj
@@ -69,6 +71,7 @@ def service_connection(sel, key, mask):
             print('DEBUG selector: ' + repr(sel))
             print('DEBUG key: ' + repr(key))
 
+
 def accept_new_connection(selector, sock):
     conn, addr = sock.accept()  # Should be ready to read
     conn.setblocking(False)
@@ -79,6 +82,7 @@ def accept_new_connection(selector, sock):
     # TODO setup write for new group request
     events = selectors.EVENT_READ | selectors.EVENT_WRITE
     selector.register(conn, events, data=data)
+
 
 def build_args():
     parser = argparse.ArgumentParser()
