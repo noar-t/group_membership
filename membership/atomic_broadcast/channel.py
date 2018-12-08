@@ -1,5 +1,3 @@
-# Since there is no access to creating and setting up multicast groups on
-# UTCS routers we will spew the UDP packets to all hosts manually
 import socket
 import time
 import struct
@@ -66,4 +64,5 @@ class Message(object):
         self.hops += 1
 
     def is_timely(self, tmp=None):
-        pass
+        """Determines if a message is Timely U < T +h(δ+ε) """
+        return True

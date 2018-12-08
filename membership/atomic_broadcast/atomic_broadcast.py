@@ -17,28 +17,24 @@ class AtomicBroadcaster(object):
         self.msg_queue = mp.Queue()
         self.hosts = hosts
         self.channels = [Channel(port, self.msg_queue) for port in ports]
+        self.sigma = 5 #TODO this is not accurate
         self.__forwarder = mp.Process(target=self.__forwarder_worker,
                                       daemon=True)
         self.__forwarder.start()
 
-    #TODO currently exerimental code for select could just use pipes if
-    # necessary
-    # currently select works because queue uses a pipe underlying,
-    # but the select only returns a _reader object thus maybe do a
-    # _reader dictionary to queue dictionary or do a filer but that might be
-    # slow
-    #
-    # could also just use 1 queue and block that way but i think its a little
-    # ugly to pass in a queue into a constructor but probably best option
-    #def __forwarder_worker(self):
-    #    """ Wait on multiple Queue objects and forward if timely """
-    #    queues = [q._reader for q in c.queue for c in self.channels]
-    #    (input,[],[]) = select.select([que._reader],[],[])
-    #    pass
-
+    #Forwards message (T,s,,h+1), on channels c+1,...,f+1-h
     def __forwarder_worker(self):
+        msg = None
         while True:
-            self.msg_queue.get()
+            msg = self.msg_queue.get()
+            if msg.is_timely(self.sigma):
+                #broadcast on subset of channels
+                pass
+
+    def calc_sigma(self):
+        """find average ping to all hosts"""
+        pass
+
 
     # Send message on all channels
     def broadcast(self, message):
