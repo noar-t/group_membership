@@ -1,5 +1,14 @@
 import multiprocessing as mp
-from channel import Channel, Message
+from membership.atomic_broadcast.channel import Channel, Message
+
+
+class Host(object):
+    """ Holds information about a single host that can receive a message. It is
+    a single channel running on a process"""
+
+    def __init__(self, name, port):
+        self.name = name
+        self.port = port
 
 
 class AtomicBroadcaster(object):

@@ -3,6 +3,7 @@
 import socket
 import time
 import multiprocessing as mp
+# from atomic_broadcast import Host
 
 
 class Channel(object):
@@ -13,14 +14,14 @@ class Channel(object):
         incoming channel messages.
 
         Keyword arguments:
-        hosts     -- a list of the host name or ips of the members of the
-                     channel as strings
+        hosts     -- a list of the hosts 
         port      -- the port which to send out the udp messages to
         out_queue -- a multiprocessing queue to place incoming messages
         """
         self.hosts = hosts
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind(('LOCALHOST', self.port))
 
         # os.inhertiable?
 
@@ -28,10 +29,15 @@ class Channel(object):
         self.__listener = mp.Process(target=self.__recv_worker, daemon=True)
         self.__listener.start()
 
+    def send(self, dest, message):
+        """ Send a message to dest connected to the channel """
+        print('sending', dest.__dict__)
+        self.socket.sendto(message, (dest.name, dest.port))
+
     def broadcast(self, message):
         """ Send a message to all hosts connected to the channel """
         for host in self.hosts:
-            self.socket.sendto(message, (host, self.port))
+            self.send(host, message)
 
     # def get_message(self):
        # """ Block until a message is received """
@@ -41,22 +47,15 @@ class Channel(object):
     # def queue(self):
        # return self.msg_queue
 
-    def __recv_worker(self):
-        """ Configures the socket for the channel to listen """
-        self.socket.bind((socket.gethostname(), self.port))
-        self.__recv_loop()
-
     # TODO time stamp the msg immediately then check timelyness before sending
     # TODO Put msg into queue immediately
-    def __recv_loop(self):
+    def __recv_worker(self):
         """ Recieves messages and places them in the output queue """
         data, _ = self.socket.recvfrom(1024)
         self.msg_queue.put((time.time(), data))
         while data:
             data, _ = self.socket.recvfrom(1024)
             self.msg_queue.put((time.time(), data))
-
-        return buf
 
 
 class Message(object):
