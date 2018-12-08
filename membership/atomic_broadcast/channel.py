@@ -8,17 +8,15 @@ import multiprocessing as mp
 
 class Channel(object):
 
-    def __init__(self, hosts, port, out_queue):
+    def __init__(self, port, out_queue):
         """Initializes a Channel, which is essential a multicast group.
         Also creates a process which will listen on the channel for
         incoming channel messages.
 
         Keyword arguments:
-        hosts     -- a list of the hosts 
         port      -- the port which to send out the udp messages to
         out_queue -- a multiprocessing queue to place incoming messages
         """
-        self.hosts = hosts
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind(('LOCALHOST', self.port))
@@ -33,11 +31,6 @@ class Channel(object):
         """ Send a message to dest connected to the channel """
         print('sending', dest.__dict__)
         self.socket.sendto(message, (dest.name, dest.port))
-
-    def broadcast(self, message):
-        """ Send a message to all hosts connected to the channel """
-        for host in self.hosts:
-            self.send(host, message)
 
     # def get_message(self):
        # """ Block until a message is received """
