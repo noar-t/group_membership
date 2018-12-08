@@ -1,9 +1,7 @@
-# Since there is no access to creating and setting up multicast groups on
-# UTCS routers we will spew the UDP packets to all hosts manually
 import socket
 import time
+import struct
 import multiprocessing as mp
-# from atomic_broadcast import Host
 
 
 class Channel(object):
@@ -19,9 +17,6 @@ class Channel(object):
         """
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(('LOCALHOST', self.port))
-
-        # os.inhertiable?
 
         self.msg_queue = out_queue
         self.__listener = mp.Process(target=self.__recv_worker, daemon=True)
@@ -29,37 +24,45 @@ class Channel(object):
 
     def send(self, dest, message):
         """ Send a message to dest connected to the channel """
-        print('sending', dest.__dict__)
+        #print('sending', dest.__dict__)
         self.socket.sendto(message, (dest.name, dest.port))
 
-    # def get_message(self):
-       # """ Block until a message is received """
-       # return self.msg_queue.get()
-
-    # @property
-    # def queue(self):
-       # return self.msg_queue
-
-    # TODO time stamp the msg immediately then check timelyness before sending
-    # TODO Put msg into queue immediately
     def __recv_worker(self):
         """ Recieves messages and places them in the output queue """
-        data, _ = self.socket.recvfrom(1024)
+        self.socket.bind((socket.gethostname(), self.port))
+
+        #messages are sized due to struct layout
+        data, _ = self.socket.recvfrom(1072)
         self.msg_queue.put((time.time(), data))
         while data:
-            data, _ = self.socket.recvfrom(1024)
+            data, _ = self.socket.recvfrom(1072)
             self.msg_queue.put((time.time(), data))
 
-
 class Message(object):
-    def __init__(self, host, data):
-        self.time = None
-        self.hops = 1
-        self.origin = host
-        self.data = data
+    def __init__(self, host, data, copy=None):
+        if copy is None:
+            self.time = None #float
+            self.hops = 1 #int
+            self.origin = host #should be reduced to 12 char array
+            self.data = data #1024 bytes
+        else: #copy constructor/demarshal
+            self.unmarshal(data)
+
+    def marshal(self):
+        msg = struct.pack('fi12s1024s', self.time, \
+                          self.hops, self.origin, self.data)
+        return msg
+
+    def unmarshal(self, data):
+        msg = struct.unpack('fi12s1024s')
+        self.time = msg[0]
+        self.hops = msg[1]
+        self.origin = msg[2]
+        self.data = msg[3]
 
     def add_hop(self):
         self.hops += 1
 
     def is_timely(self, tmp=None):
-        pass
+        """Determines if a message is Timely U < T +h(δ+ε) """
+        return True
