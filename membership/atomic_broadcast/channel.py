@@ -7,8 +7,8 @@ from membership import LOG
 
 class Channel(object):
 
-    def __init__(self, port, out_queue):
-        """Initializes a Channel, which is essential a multicast group.
+    def __init__(self, port, chan_id, out_queue):
+        """ Initializes a Channel, which is essential a multicast group.
         Also creates a process which will listen on the channel for
         incoming channel messages.
 
@@ -17,6 +17,7 @@ class Channel(object):
         out_queue -- a multiprocessing queue to place incoming messages
         """
         self.port = port
+        self.channnel_id = chan_id
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         self.msg_queue = out_queue
@@ -36,38 +37,44 @@ class Channel(object):
         """ Recieves messages and places them in the output queue """
         #messages are sized due to struct layout
         LOG.debug("receiving message")
-        data, _ = self.socket.recvfrom(1072)
+        data, _ = self.socket.recvfrom(1080)
         LOG.debug("received message: %s", data)
         self.msg_queue.put((time.time(), data))
         while data:
-            data, _ = self.socket.recvfrom(1072)
+            data, _ = self.socket.recvfrom(1080)
             self.msg_queue.put((time.time(), data))
 
 class Message(object):
-    def __init__(self, host, data, copy=None):
+    def __init__(self, host, data, chan, copy=None):
         if copy is None:
             self.time = None #float
             self.hops = 1 #int
-            self.origin = host #should be reduced to 12 char array
-            self.data = data #1024 bytes
-        else: #copy constructor/demarshal
+            self.host = host #should be parsed to 15 char array
+            self.chan = chan
+            self.data = data #1024 byte buffer
+        else:
+            #copy constructor/unmarshal
             self.unmarshal(data)
 
     def marshal(self):
-        msg = struct.pack('fi12s1024s', self.time, \
-                          self.hops, self.origin, self.data)
+        """ Turns a message object into an transmittable format """
+        msg = struct.pack('fi15si1024s', self.time, \
+                          self.hops, self.host, self.chan, self.data)
+
         return msg
 
     def unmarshal(self, data):
-        msg = struct.unpack('fi12s1024s')
+        """ Turns a recieved message back into a message object """
+        msg = struct.unpack('fi15si1024s', data)
         self.time = msg[0]
         self.hops = msg[1]
-        self.origin = msg[2]
-        self.data = msg[3]
+        self.host = msg[2]
+        self.chan = msg[3]
+        self.data = msg[4]
 
     def add_hop(self):
         self.hops += 1
 
-    def is_timely(self, tmp=None):
-        """Determines if a message is Timely U < T +h(δ+ε) """
-        return True
+    def is_timely(self, time, sigma):
+        """ Determines if a message is Timely U < T +h(δ+ε) """
+        return time < (self.time + self.hops * sigma)

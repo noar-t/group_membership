@@ -17,8 +17,10 @@ class AtomicBroadcaster(object):
     def __init__(self, hosts, ports):
         self.msg_queue = mp.Queue()
         self.hosts = hosts
-        self.channels = [Channel(port, self.msg_queue) for port in ports]
-        self.sigma = 5 #TODO this is not accurate
+        self.channels = [Channel(port, chan_id, self.msg_queue) \
+                         for chan_id, port in enumerate(ports)]
+        #TODO this is not accurate, need to flushout calc_sigma
+        self.sigma = 5
         self.__forwarder = mp.Process(target=self.__forwarder_worker,
                                       daemon=True)
         self.__forwarder.start()
@@ -26,14 +28,16 @@ class AtomicBroadcaster(object):
     #Forwards message (T,s,,h+1), on channels c+1,...,f+1-h
     def __forwarder_worker(self):
         msg = None
+        recv_time = None
         while True:
-            msg = self.msg_queue.get()
-            if msg.is_timely(self.sigma):
+            recv_time, msg = self.msg_queue.get()
+            msg = Message(None, msg, True)
+            if msg.is_timely(recv_time, self.sigma):
                 #broadcast on subset of channels
                 pass
 
     def calc_sigma(self):
-        """find average ping to all hosts"""
+        """ Find average ping to all hosts """
         pass
 
 
