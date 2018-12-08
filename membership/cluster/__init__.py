@@ -23,12 +23,12 @@ class Cluster(object):
         LOG.info('log files for servers can be found at logs/')
 
         for id in range(self.args.count):
-            id_arg = ['-i', str(id + 1)]
+            id_arg = ['-i', str(id)]
 
-            LOG.info('starting server: %i', id + 1)
+            LOG.info('starting server: %i', id)
 
             # open log file
-            log = open(os.path.join('logs', str(id + 1) + '.log'), 'w')
+            log = open(os.path.join('logs', str(id) + '.log'), 'w')
 
             # spawn child process
             p = Popen(args + id_arg, stdout=log, stderr=log)
