@@ -7,5 +7,4 @@ class TestAtomicBroadcast(unittest.TestCase):
 
 
     def test_broadcast(self):
-
-        
+        pass

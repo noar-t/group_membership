@@ -2,6 +2,7 @@ import socket
 import time
 import struct
 import multiprocessing as mp
+from membership import LOG
 
 
 class Channel(object):
@@ -20,19 +21,23 @@ class Channel(object):
 
         self.msg_queue = out_queue
         self.__listener = mp.Process(target=self.__recv_worker, daemon=True)
+
+        # bind before starting worker thread so we don't race in unittest
+        LOG.debug(socket.gethostbyname(socket.gethostname()))
+        self.socket.bind((socket.gethostbyname(socket.gethostname()), self.port))
         self.__listener.start()
 
     def send(self, dest, message):
         """ Send a message to dest connected to the channel """
-        #print('sending', dest.__dict__)
+        LOG.debug("sending message %s", message)
         self.socket.sendto(message, (dest.name, dest.port))
 
     def __recv_worker(self):
         """ Recieves messages and places them in the output queue """
-        self.socket.bind((socket.gethostname(), self.port))
-
         #messages are sized due to struct layout
+        LOG.debug("receiving message")
         data, _ = self.socket.recvfrom(1072)
+        LOG.debug("received message: %s", data)
         self.msg_queue.put((time.time(), data))
         while data:
             data, _ = self.socket.recvfrom(1072)

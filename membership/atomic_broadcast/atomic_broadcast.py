@@ -1,5 +1,6 @@
 import multiprocessing as mp
 from membership.atomic_broadcast.channel import Channel, Message
+from membership import LOG
 
 
 class Host(object):
