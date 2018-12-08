@@ -1,7 +1,7 @@
 import setuptools
 
-NAME = "atomic"
-DESCRIPTION = "Atomic broadcast"
+NAME = "membership"
+DESCRIPTION = "Membership Protocol"
 VERSION = "0.1"
 AUTHOR = "Will and Noah"
 AUTHOR_EMAIL = "wlsaidhi@utexas.edu"

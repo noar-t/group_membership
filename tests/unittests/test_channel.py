@@ -2,7 +2,7 @@ import multiprocessing as mp
 import unittest
 
 # from atomic_broadcast.broadcast.channel import Channel
-from atomic_broadcast.channel import Channel
+from membership.atomic_broadcast.channel import Channel
 
 
 class TestChannel(unittest.TestCase):
