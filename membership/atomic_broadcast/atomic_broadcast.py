@@ -33,11 +33,18 @@ class AtomicBroadcaster(object):
             recv_time, msg = self.msg_queue.get()
             msg = Message(None, msg, True)
             if msg.is_timely(recv_time, self.sigma):
-                #broadcast on subset of channels
-                pass
+                msg = msg.add_hop()
+                c = msg.chan
+                h = msg.hops
+                for i in range(c+1, len(self.channels)):
+                    chan = self.channels[i]
+                    for host in self.hosts:
+                        msg.chan = i
+                        chan.send(host, msg.marshal())
 
     def calc_sigma(self):
         """ Find average ping to all hosts """
+        #TODO we can use popen to invoke ping but that may be poor style
         pass
 
 
