@@ -7,6 +7,12 @@ Membership protocol over atomic broadcast
 
 ctrl-c to kill cluster
 
+### Managing the cluster
+`ls` to list the currently running servers
+`add [id]` to add server id to the cluster
+`remove [id]` to remove server id from the cluster
+NOTE: id has to be within [0, 100]
+
 ## Running Unittests and Linter
 `tox`
 
