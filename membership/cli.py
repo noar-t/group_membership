@@ -11,14 +11,17 @@ ARG_SETS = {
     'SERVER': (
         (('-i', '--id'),
          {'help': 'globally unique id for the server', 'required': True,
-          'metavar': 'INT', 'type': int, 'action': 'store'}),),
+          'metavar': 'INT', 'type': int, 'action': 'store'}),
+        (('-s', '--servers'),
+         {'help': 'list of servers in the cluster', 'metavar': 'IP:ID',
+          'nargs': '*'}),),
     'COUNT': (
         (('-c', '--count'),
          {'help': 'number of servers in cluster', 'required': True,
           'metavar': 'INT', 'type': int, 'action': 'store'}),),
 }
 SUBCMDS = {
-    'server': ('run server program', ('LOG', 'COUNT', 'SERVER')),
+    'server': ('run server program', ('LOG', 'SERVER')),
     'cluster': ('run cluster program', ('LOG', 'COUNT')),
 }
 

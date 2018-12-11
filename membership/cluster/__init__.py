@@ -15,7 +15,7 @@ class Cluster(object):
         for id in range(self.args.count):
             self.add(id)
 
-    def add(self, id):
+    def add(self, id, ip='127.0.1.1'):
         """
         adds server id to the cluster
         :id: new server's id
@@ -28,18 +28,19 @@ class Cluster(object):
             return False
 
         # TODO clean up
-        args = ['python3', '-m', 'membership', 'server', '-c',
-                str(self.args.count)]
+        args = ['python3', '-m', 'membership', 'server', '-s']
+        args += [ip + ':' + str(id) for id in self.servers]
 
         if self.args.verbose:
             args.append('-v')
 
-        id_arg = ['-i', str(id)]
+        args += ['-i', str(id)]
         # open log file
         log = open(os.path.join('logs', str(id) + '.log'), 'w')
         LOG.info('starting server: %i', id)
+        LOG.debug('arguments: %s', args)
         # spawn child process
-        p = Popen(args + id_arg, stdout=log, stderr=log)
+        p = Popen(args, stdout=log, stderr=log)
         self.servers[id] = {'process': p, 'log': log}
         return True
 

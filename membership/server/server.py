@@ -11,7 +11,14 @@ class Server(object):
 
     def __init__(self, args):
         self.port = 50000 + 100 * args.id
+        self.servers = {}
         LOG.debug("starting server %i with port %i", args.id, self.port)
+
+        for server in args.servers:
+            split = server.split(':')
+            self.servers[int(split[1])] = split[0]
+
+        LOG.debug("server list %s", self.servers)
 
         self.event_loop(self.port)
 
