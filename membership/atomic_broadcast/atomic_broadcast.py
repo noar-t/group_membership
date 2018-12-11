@@ -32,10 +32,11 @@ class AtomicBroadcaster(object):
         while True:
             recv_time, msg = self.msg_queue.get()
             msg = Message(None, msg, True)
+            #TODO should probably split logic up better
             if msg.is_timely(recv_time, self.sigma):
-                msg = msg.add_hop()
                 c = msg.chan
                 h = msg.hops
+                msg = msg.add_hop()
                 for i in range(c+1, len(self.channels)):
                     chan = self.channels[i]
                     for host in self.hosts:
