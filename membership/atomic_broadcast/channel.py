@@ -35,7 +35,8 @@ class Channel(object):
     def send(self, ip, port, message):
         """ Send a message to dest connected to the channel """
         LOG.debug("sending message %s to %s at port %i", message, ip, port)
-        self.socket.sendto(message, (ip, port))
+        message.time = time.time()
+        self.socket.sendto(message.marshal(), (ip, port))
 
     def __recv_worker(self):
         """ Recieves messages and places them in the output queue """

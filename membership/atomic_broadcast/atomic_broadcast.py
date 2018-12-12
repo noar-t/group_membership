@@ -53,9 +53,12 @@ class AtomicBroadcaster(object):
 
     # Send message on all channels
     def broadcast(self, message):
+        message_out = None
         for c in self.channels:
+            #TODO need to get host ip for first argument
+            message_out = Message(None, message, c.channel_id)
             for _, host in self.hosts.items():
-                c.send(host.ip, host.port, message)
+                c.send(host.ip, host.port, message_out)
 
 class MessageList(object):
     #intermal format should be (time to accept message, message)
