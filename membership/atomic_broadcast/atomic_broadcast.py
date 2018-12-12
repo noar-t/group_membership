@@ -60,6 +60,9 @@ class AtomicBroadcaster(object):
         # TODO we can use popen to invoke ping but that may be poor style
         pass
 
+    def get_messages(self):
+        return self.message_list.get_messages()
+
     # Send message on all channels
 #<<<<<<< HEAD
 #    def broadcast(self, message):
