@@ -16,9 +16,8 @@ class PeriodicBroadcastGroup(object):
         # the next set for the next period is built we swap the pointer.
         # So new set every period and the set we return will not need 
         # synchronization
-        self.last_group = set()
+        self.last_group = list()
         self.cur_group = self.last_group
-        self.cur_period = None
         self.host = None #TODO ip?
         self.period = period
         # TODO fill in boadcaster parameters. I dont know how the cluser params
@@ -31,7 +30,7 @@ class PeriodicBroadcastGroup(object):
         self.__r_thread.start()
 
     def get_members(self):
-        """ Returns a set of the most recent members of the group """
+        """ Returns a list of the most recent members of the group """
         return self.last_group
 
 
@@ -50,9 +49,19 @@ class PeriodicBroadcastGroup(object):
         self.atomic_b.broadcast(msg)
 
     def __recv_worker(self):
+        """ Gets messages then creates the membership list """
         # TODO there is 2 cases, we wait until there is an item in the list
         # or the period is over gonna use a semaphore i think just need to
         # decide best way to put it in the messagelist
         # This will build the set locking around access, basically just 
         # summing up the broadcasted present messages for the period
-        pass
+        msg = None
+        while True:
+            remaining_t = time.time() % self.period
+            msg = self.atomic_b.wait_for_message(remaining_t)
+            if msg is None:
+                self.last_group = self.cur_group
+                self.cur_group = list()
+            msg = struct.unpack('i15s', msg)
+            self.cur_group.append(msg[0])
+

@@ -111,6 +111,9 @@ class AtomicBroadcaster(object):
     def get_messages(self):
         return self.message_list.get_messages()
 
+    def wait_for_message(self, timeout):
+        return self.message_list.wait_for_message(timeout)
+
     # Send message on all channels
 #<<<<<<< HEAD
 #    def broadcast(self, message):
