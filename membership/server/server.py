@@ -27,7 +27,7 @@ class Server(object):
             ip = split[0]
             self.servers[id] = Host(id, ip)
 
-        LOG.debug("server list %s", self.servers)
+        # LOG.debug("server list %s", self.servers)
 
         self.broadcaster = atomic_broadcast.AtomicBroadcaster(self.port,
                 self.servers, 8)
