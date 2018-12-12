@@ -27,42 +27,48 @@ class Channel(object):
         # bind before starting worker thread so we don't race in unittest
         LOG.debug(socket.gethostbyname(socket.gethostname()))
         LOG.info('channel %i created listening on port %s', self.channel_id,
-                  self.channel_port)
+                 self.channel_port)
         self.socket.bind((socket.gethostbyname(socket.gethostname()),
-            self.channel_port))
+                          self.channel_port))
         self.__listener.start()
 
-    def send(self, ip, port, message):
+    def send(self, ip, port, msg):
         """ Send a message to dest connected to the channel """
-        LOG.debug("sending message %s to %s at port %i", message, ip, port)
-        self.socket.sendto(message, (ip, port))
+        msg.time = time.time()
+        msg.chan = self.channel_id
+        dest_channel_port = port + self.channel_id
+
+        LOG.debug("sending M(%f, %s, m, %i)->c%i to %s:%i", msg.time,
+                  self.server_port, msg.hops, msg.chan, ip, port)
+        self.socket.sendto(msg.marshal(), (ip, dest_channel_port))
 
     def __recv_worker(self):
         """ Recieves messages and places them in the output queue """
-        #messages are sized due to struct layout
-        LOG.debug("receiving message")
-        data, _ = self.socket.recvfrom(1080)
-        LOG.debug("received message: %s", data)
+        # messages are sized due to struct layout
+        data, addr = self.socket.recvfrom(1080)
+        LOG.debug("received message from: %s on c%i", addr, self.channel_id)
         self.msg_queue.put((time.time(), data))
         while data:
-            data, _ = self.socket.recvfrom(1080)
+            data, addr = self.socket.recvfrom(1080)
+            LOG.debug("received message from: %s on c%i", addr, self.channel_id)
             self.msg_queue.put((time.time(), data))
+
 
 class Message(object):
     def __init__(self, host, data, chan, copy=None):
         if copy is None:
-            self.time = None #float
-            self.hops = 1 #int
-            self.host = host #should be parsed to 15 char array
+            self.time = None  # float
+            self.hops = 1  # int
+            self.host = host  # should be parsed to 15 char array
             self.chan = chan
-            self.data = data #1024 byte buffer
+            self.data = data  # 1024 byte buffer
         else:
-            #copy constructor/unmarshal
+            # copy constructor/unmarshal
             self.unmarshal(data)
 
     def marshal(self):
         """ Turns a message object into an transmittable format """
-        msg = struct.pack('fi15si1024s', self.time, \
+        msg = struct.pack('fi15si1024s', self.time,
                           self.hops, self.host, self.chan, self.data)
 
         return msg
@@ -81,4 +87,6 @@ class Message(object):
 
     def is_timely(self, time, sigma):
         """ Determines if a message is Timely U < T +h(δ+ε) """
+        LOG.debug("is_timely: %f < (%f + %i + %f)", time, self.time, self.hops,
+                sigma)
         return time < (self.time + self.hops * sigma)
