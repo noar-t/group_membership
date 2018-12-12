@@ -29,7 +29,8 @@ class Cluster(object):
 
         # TODO clean up
         args = ['python3', '-m', 'membership', 'server', '-s']
-        args += [ip + ':' + str(id) for id in self.servers]
+        # args += [ip + ':' + str(id) for id in self.servers]
+        args += [ip + ':' + str(id) for id in range(self.args.count)]
 
         if self.args.verbose:
             args.append('-v')
