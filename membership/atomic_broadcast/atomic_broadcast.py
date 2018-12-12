@@ -57,9 +57,9 @@ class AtomicBroadcaster(object):
             msg = self.msg_queue.get()
             if not msg.is_late(self.channel_count // 2, self.sigma):
                 if msg.is_timely(self.sigma):
-                    # self.message_list.add_message(accept_time, msg)
                     if self.__add_to_c_history(msg):
                         # schedule forwarding task
+                        self.message_list.add_message(time.time(), msg)
                         self.__schedule_forward_task(msg)
                 else:
                     LOG.debug('not timely')
