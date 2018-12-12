@@ -6,11 +6,18 @@ from membership import LOG
 
 class AtomicBroadcaster(object):
 
-    def __init__(self, hosts, ports):
+    def __init__(self, server_port, hosts, channel_count):
+        """
+        :server_port: port of the server that this AtomicBroadcaster is running
+        on
+        :hosts: dict of hosts running in the cluster
+        :channel_count: number of channels to create
+        """
         self.msg_queue = mp.Queue()
         self.hosts = hosts
-        self.channels = [Channel(port, chan_id, self.msg_queue) \
-                         for chan_id, port in enumerate(ports)]
+        self.channels = [Channel(server_port, n + 1, self.msg_queue) \
+                         for n in range(channel_count)]
+        LOG.info("atomicbroadcaster created")
         #TODO this is not accurate, need to flushout calc_sigma
         self.sigma = 5
         self.__forwarder = mp.Process(target=self.__forwarder_worker,
@@ -31,9 +38,9 @@ class AtomicBroadcaster(object):
                 msg = msg.add_hop()
                 for i in range(c+1, len(self.channels)):
                     chan = self.channels[i]
-                    for host in self.hosts:
+                    for _, host in self.hosts.items():
                         msg.chan = i
-                        chan.send(host, msg.marshal())
+                        chan.send(host.ip, host.port, msg.marshal())
 
     def calc_sigma(self):
         """ Find average ping to all hosts """
@@ -43,8 +50,8 @@ class AtomicBroadcaster(object):
     # Send message on all channels
     def broadcast(self, message):
         for c in self.channels:
-            for host in self.hosts:
-                c.send(host, message)
+            for _, host in self.hosts.items():
+                c.send(host.ip, host.port, message)
 
 class MessageList(object):
     #intermal format should be (time to accept message, message)

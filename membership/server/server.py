@@ -5,10 +5,17 @@ import types
 import pickle
 import time
 from membership import LOG
+from membership.atomic_broadcast import atomic_broadcast
+
+
+class Host(object):
+    def __init__(self, id, ip):
+        self.id = id
+        self.ip = ip
+        self.port = 50000 + 100 * id
 
 
 class Server(object):
-
     def __init__(self, args):
         self.port = 50000 + 100 * args.id
         self.servers = {}
@@ -16,9 +23,14 @@ class Server(object):
 
         for server in args.servers:
             split = server.split(':')
-            self.servers[int(split[1])] = split[0]
+            id = int(split[1])
+            ip = split[0]
+            self.servers[id] = Host(id, ip)
 
         LOG.debug("server list %s", self.servers)
+
+        self.broadcaster = atomic_broadcast.AtomicBroadcaster(self.port,
+                self.servers, 8)
 
         self.event_loop(self.port)
 

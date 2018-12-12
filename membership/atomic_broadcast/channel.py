@@ -7,17 +7,18 @@ from membership import LOG
 
 class Channel(object):
 
-    def __init__(self, port, chan_id, out_queue):
+    def __init__(self, server_port, chan_id, out_queue):
         """ Initializes a Channel, which is essential a multicast group.
         Also creates a process which will listen on the channel for
         incoming channel messages.
 
         Keyword arguments:
-        port      -- the port which to send out the udp messages to
+        server_port      -- the server's port that this channel is running on
         out_queue -- a multiprocessing queue to place incoming messages
         """
-        self.port = port
-        self.channnel_id = chan_id
+        self.server_port = server_port
+        self.channel_id = chan_id
+        self.channel_port = server_port + chan_id
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         self.msg_queue = out_queue
@@ -25,13 +26,16 @@ class Channel(object):
 
         # bind before starting worker thread so we don't race in unittest
         LOG.debug(socket.gethostbyname(socket.gethostname()))
-        self.socket.bind((socket.gethostbyname(socket.gethostname()), self.port))
+        LOG.info('channel %i created listening on port %s', self.channel_id,
+                  self.channel_port)
+        self.socket.bind((socket.gethostbyname(socket.gethostname()),
+            self.channel_port))
         self.__listener.start()
 
-    def send(self, dest, message):
+    def send(self, ip, port, message):
         """ Send a message to dest connected to the channel """
-        LOG.debug("sending message %s", message)
-        self.socket.sendto(message, (dest.name, dest.port))
+        LOG.debug("sending message %s to %s at port %i", message, ip, port)
+        self.socket.sendto(message, (ip, port))
 
     def __recv_worker(self):
         """ Recieves messages and places them in the output queue """
