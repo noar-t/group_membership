@@ -2,7 +2,7 @@
 Membership protocol over atomic broadcast
 
 ## Running Cluster
--v for verbose (debug logging messages)
+-v for verbose (debug logging messages)  
 `tox -e run -- cluster -c [# of servers] [-v]`
 
 ctrl-c to kill cluster
