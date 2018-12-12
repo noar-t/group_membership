@@ -1,4 +1,5 @@
-import struct
+import structa
+import select
 import socket
 import time
 import threading as th
@@ -27,10 +28,10 @@ class AttendanceListGroup(object):
         # work
         self.atomic_b = AtomicBroadcaster(10, ['TODO'], 10)
 
-        #self.__b_thread = th.Thread(target=self.__forward_worker(), args=())
-        #self.__b_thread.start()
         self.__r_thread = th.Thread(target=self.__reconf_recv_worker())
         self.__r_thread.start()
+        self.__l_thread = th.Thread(target=self.__list_recv_worker(), args=())
+        self.__l_thread.start()
 
 
     def send_reconfigure(self):
@@ -41,13 +42,29 @@ class AttendanceListGroup(object):
     def __reconf_recv_worker(self):
         # TODO there is 2 cases, we wait until there is an item in the list
         # or the period is over gonna use a semaphore i think just need to
-        # decide best way to put it in the messagelist
+        # decide best way to put it in the messagelist peek every time
+        # semaphore is upped and if time will be in period pop
+        # TODO Naeively wait until end of period before checking messages
         pass
 
     def __list_recv_worker(self):
         """ Waits for an attendance list, if none arrive by period
         requests new group to be formed. However if one is received forward the
         list to the next host """
+        data = None
+        msg = None
+        while True:
+            readable, _, _ = select.select([self.sock], [], [], timeout=self.period)
+            for sock in readable:
+                data = sock.recvfrom(104)
+                msg = struct.unpack(list_fmt, data)
+                members = list()
+                num_items = msg[0]
+                for i in range(num_items):
+                    members.append(msg[i+1]) # basically umarshal the attendance list
+
+
         # we can either use select or socket.settimeout() in order to wait
         # period time to receive a list before issuing reconfiguration request
+    def __forward_list(self, members):
         pass
