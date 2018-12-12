@@ -34,6 +34,7 @@ class Channel(object):
     def send(self, ip, port, msg):
         """ Send a message to dest connected to the channel """
         msg.chan = self.channel_id
+        msg.host = ip.encode()
         dest_channel_port = port + self.channel_id
 
         # LOG.debug("sending M(%f, %s, m, %i)->c%i to %s:%i", msg.time,

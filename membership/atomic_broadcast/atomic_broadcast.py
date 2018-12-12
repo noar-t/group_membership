@@ -32,10 +32,8 @@ class AtomicBroadcaster(object):
 
         # XXX
         # if server_port == 50000:
-            # m = Message(b'123451234512345', b'HI', 0)
-
             # time.sleep(2)
-            # self.broadcast(m)
+            # self.broadcast(b'hi')
 
     def __add_to_c_history(self, msg):
         """
@@ -94,7 +92,7 @@ class AtomicBroadcaster(object):
         # check if c < f + 1 - h
         if highest_chan_recv < highest_chan_send:
             LOG.info("%i is forwarding msg from %i", self.server_port,
-                    msg.addr[1])
+                     msg.addr[1])
             msg.add_hop()
             # forward on channels c + 1, ..., f + 1 - h
             for channel in self.channels[highest_chan_recv:highest_chan_send]:
@@ -114,23 +112,13 @@ class AtomicBroadcaster(object):
     def wait_for_message(self, timeout):
         return self.message_list.wait_for_message(timeout)
 
-    # Send message on all channels
-#<<<<<<< HEAD
-#    def broadcast(self, message):
-#        message_out = None
-#        for c in self.channels:
-#            #TODO need to get host ip for first argument
-#            message_out = Message(None, message, c.channel_id)
-#            for _, host in self.hosts.items():
-#                c.send(host.ip, host.port, message_out)
-#=======
-    def broadcast(self, msg):
+    def broadcast(self, msg_data):
+        """Send message on all channels"""
+        msg = Message(None, msg_data, None)
         msg.time = time.time()
         for channel in self.channels:
             for _, host in self.hosts.items():
                 channel.send(host.ip, host.port, msg)
-
-#>>>>>>> b00f0a934aa847ca54717142faed4367cf0f1fe5
 
 
 class MessageList(object):
