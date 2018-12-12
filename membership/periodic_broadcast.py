@@ -11,7 +11,13 @@ class PeriodicBroadcastGroup(object):
     def __init__(self, all_hosts, host, period=5):
         self.all_hosts = all_hosts
         self.set_lock = th.Lock()
-        self.cur_group = set()
+        # TODO might be good to use the set like a ping pong buffer
+        # as in we build it and then let the user read it then once
+        # the next set for the next period is built we swap the pointer.
+        # So new set every period and the set we return will not need 
+        # synchronization
+        self.last_group = set()
+        self.cur_group = self.last_group
         self.cur_period = None
         self.host = None #TODO ip?
         self.period = period
@@ -24,13 +30,22 @@ class PeriodicBroadcastGroup(object):
         self.__r_thread = th.Thread(target=self.__recv_worker())
         self.__r_thread.start()
 
+    def get_members(self):
+        """ Returns a set of the most recent members of the group """
+        return self.last_group
+
+
     def __broadcast_worker(self):
+        """ Broadcasts present every period time units """
         while True:
             self.cur_period = time.time()
             time.sleep(self.period)
             self.send_present()
 
     def send_present(self):
+        """ Broadcast a present message to all hosts in the group """
+        # TODO manipulate hosts in atomic broadcaster to only broadcast
+        # to relivant hosts
         msg = struct.pack(msg_fmt, os.get_pid(), self.host)
         self.atomic_b.broadcast(msg)
 
@@ -38,5 +53,6 @@ class PeriodicBroadcastGroup(object):
         # TODO there is 2 cases, we wait until there is an item in the list
         # or the period is over gonna use a semaphore i think just need to
         # decide best way to put it in the messagelist
+        # This will build the set locking around access, basically just 
+        # summing up the broadcasted present messages for the period
         pass
-        
