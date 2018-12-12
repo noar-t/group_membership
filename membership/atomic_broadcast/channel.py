@@ -105,6 +105,9 @@ class Message(object):
         # LOG.debug("\n%f\n%f", self.recv_time, self.time + (k+1)*sigma)
         return self.recv_time >= self.time + (k + 1) * sigma
 
+    def get_delivery_time(self, k, sigma):
+        return self.time + (k + 1) * sigma
+
     def is_timely(self, sigma):
         """ Determines if a message is Timely U < T +h(δ+ε) """
         # LOG.debug("is_timely: %f < (%f + %i + %f)",

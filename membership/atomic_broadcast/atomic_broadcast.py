@@ -59,7 +59,10 @@ class AtomicBroadcaster(object):
                 if msg.is_timely(self.sigma):
                     if self.__add_to_c_history(msg):
                         # schedule forwarding task
-                        self.message_list.add_message(time.time(), msg)
+                        delivery_time = msg.get_delivery_time(
+                                self.channel_count // 2,
+                                self.sigma)
+                        self.message_list.add_message(delivery_time, msg)
                         self.__schedule_forward_task(msg)
                 else:
                     LOG.debug('not timely')
