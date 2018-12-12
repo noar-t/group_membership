@@ -1,4 +1,4 @@
-import structa
+import struct
 import select
 import socket
 import time
@@ -21,6 +21,7 @@ class AttendanceListGroup(object):
         self.cur_period = None
         self.host = None # TODO ip?
         self.period = period
+        self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # TODO needs to be assigned like the broadcaster
         self.sock.bind((socket.gethostbyname(socket.gethostname()), port))
@@ -45,9 +46,19 @@ class AttendanceListGroup(object):
         # decide best way to put it in the messagelist peek every time
         # semaphore is upped and if time will be in period pop
         # TODO Naeively wait until end of period before checking messages
+        msg = None
+        while True:
+            remaining_t = time.time() % self.period
+            msg = self.atomic_b.wait_for_message(remaining_t)
+            if msg is None:
+                self.last_group = self.cur_group
+                self.cur_group = list()
+            msg = struct.unpack('i', msg)
+            #TODO fix
+            self.add_host(msg[0])
         pass
 
-    def __list_recv_worker(self):
+    def __list_recv_list_worker(self):
         """ Waits for an attendance list, if none arrive by period
         requests new group to be formed. However if one is received forward the
         list to the next host """
@@ -62,9 +73,13 @@ class AttendanceListGroup(object):
                 num_items = msg[0]
                 for i in range(num_items):
                     members.append(msg[i+1]) # basically umarshal the attendance list
+                for i in range(len(members), 25): # 25 comes form struct list format
+                    members.append(-1)
+                self.forward_list(num_items, members)
 
 
         # we can either use select or socket.settimeout() in order to wait
         # period time to receive a list before issuing reconfiguration request
-    def __forward_list(self, members):
-        pass
+    def forward_list(self, num_items, members):
+        msg = struct.pack(lst_fmt, num_items, *members)
+        self.sock.sendto(msg, ('TODO put next host here', self.port))
