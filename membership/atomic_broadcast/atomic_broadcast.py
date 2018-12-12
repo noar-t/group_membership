@@ -137,6 +137,7 @@ class MessageList(object):
     def __init__(self):
         self.messages = list()
         self.lock = th.Lock()
+        self.sema = th.Semaphore(value=0)
 
     def get_messages(self):
         t = time.time()
@@ -160,4 +161,23 @@ class MessageList(object):
         for i, message in enumerate(self.messages):
             if accept_time < message.time[0]:
                 self.messages.insert(i, (accept_time, new_message))
+                # TODO experiemental
+                if i == 0:
+                    self.sema.release() # signal that there is a new first item
         self.lock.release()
+
+    def wait_for_msg(self, timeout):
+        if self.sema.acquire(True, timeout):
+            return self.peek()
+        else:
+            return None
+
+
+    def peek(self):
+        """ Gives the first item of the MessageList """
+        ret = None
+        self.lock.aqcuire()
+        if len(self.messages) > 0:
+            ret = self.messages[0]
+        self.lock.release()
+        return ret
