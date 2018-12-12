@@ -1,67 +1,87 @@
 import struct
 import time
+import os
 import threading as th
 from membership.atomic_broadcast.atomic_broadcast import AtomicBroadcaster
 from membership.atomic_broadcast.channel import Message
 
 class PeriodicBroadcastGroup(object):
 
-    msg_fmt = 'i15s' # pid and ip
+    msg_fmt = '?di15s' # new-group(t/f), groupid, pid and ip; 35 bytes
 
     def __init__(self, all_hosts, host, period=5):
-        self.all_hosts = all_hosts
-        self.set_lock = th.Lock()
-        # TODO might be good to use the set like a ping pong buffer
-        # as in we build it and then let the user read it then once
-        # the next set for the next period is built we swap the pointer.
-        # So new set every period and the set we return will not need 
-        # synchronization
-        self.last_group = list()
-        self.cur_group = self.last_group
+        self.past_members = list()
+        self.cur_members = list()
+
+        self.cur_group = None
+        self.cur_period = 0
         self.host = None #TODO ip?
         self.period = period
-        # TODO fill in boadcaster parameters. I dont know how the cluser params
-        # work
         self.atomic_b = AtomicBroadcaster(10, ['TODO'], 10)
 
         self.__b_thread = th.Thread(target=self.__broadcast_worker())
         self.__b_thread.start()
-        self.__r_thread = th.Thread(target=self.__recv_worker())
-        self.__r_thread.start()
 
     def get_members(self):
         """ Returns a list of the most recent members of the group """
-        return self.last_group
+        return self.past_members
 
 
     def __broadcast_worker(self):
         """ Broadcasts present every period time units """
-        while True:
-            self.cur_period = time.time()
-            time.sleep(self.period)
-            self.send_present()
+        # group should be V + pi because of reconfiguration latency
+        # create new group upon initialization
+        self.cur_group = time.time() + self.period
+        self.send_broadcast(new_group=True)
 
-    def send_present(self):
-        """ Broadcast a present message to all hosts in the group """
-        # TODO manipulate hosts in atomic broadcaster to only broadcast
-        # to relivant hosts
-        msg = struct.pack(msg_fmt, os.get_pid(), self.host)
+        # Processs messages and broadcast present
+        while True:
+            timeout = self.period - ((time.time() - self.cur_group) % self.period)
+            msg = self.wait_for_message(timeout)
+            # if there were no messages, the period is over
+            if msg is None:
+                self.past_members = self.cur_group
+                self.cur_members = list()
+            else:
+                self.msg_handler(msg)
+            self.send_broadcast()
+            self.cur_period += 1
+
+    def send_broadcast(self, new_group=False):
+        """ Broadcast a message to all hosts """
+        msg = struct.pack(msg_fmt, new_group, \
+                          self.cur_group, os.getpid(), self.host)
         self.atomic_b.broadcast(msg)
 
-    def __recv_worker(self):
-        """ Gets messages then creates the membership list """
-        # TODO there is 2 cases, we wait until there is an item in the list
-        # or the period is over gonna use a semaphore i think just need to
-        # decide best way to put it in the messagelist
-        # This will build the set locking around access, basically just 
-        # summing up the broadcasted present messages for the period
-        msg = None
-        while True:
-            remaining_t = time.time() % self.period
-            msg = self.atomic_b.wait_for_message(remaining_t)
-            if msg is None:
-                self.last_group = self.cur_group
-                self.cur_group = list()
-            msg = struct.unpack('i15s', msg)
-            self.cur_group.append(msg[0])
+    def msg_handler(self, msg):
+        """ Handle receipt of broadcasts """
+        t = time.time()
+        rem_t = ((msg[0] - self.cur_group) - (self.period * self.cur_period))
+        # received a message in the form form (delivery time, msg)
+        # message not ready to be delivered but will be this period
+        if t < msg[0] and rem_t < self.period:
+            self.msg_handler(self.wait_for_message(rem_t))
+            # TODO make better abstraction
+            msg =  self.atomic_b.message_list.pop()
+
+        msg = struct.unpack(msg_fmt, msg[1])
+        # if on time; myclock > V abort
+        if msg[1] < time.time():
+            # if new-group
+            if msg[0]:
+                self.cur_group = msg[1]
+                self.cur_period = 0
+                self.cur_members = [(msg[2], msg[3])]
+                self.past_members = list()
+
+            # present broadcast
+            else:
+                # put the member in the group
+                self.cur_members.append((msg[2], msg[3]))
+
+    def wait_for_message(self, timeout):
+        """ Gets messages blocking for a period """ 
+        # calculate time left in current period
+        return self.atomic_b.wait_for_message(timeout)
+
 

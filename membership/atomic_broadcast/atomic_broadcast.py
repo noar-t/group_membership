@@ -150,6 +150,13 @@ class MessageList(object):
         self.lock.release()
         return out
 
+    def pop(self):
+        self.lock.aqcuire()
+        ret = self.messages[0]
+        self.messages.remove(ret)
+        self.lock.release()
+        return ret
+
     def add_message(self, accept_time, new_message):
         self.lock.aqcuire()
         for i, message in enumerate(self.messages):
