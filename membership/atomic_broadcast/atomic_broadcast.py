@@ -1,4 +1,5 @@
 import time
+import threading as th
 import multiprocessing as mp
 from membership.atomic_broadcast.channel import Channel, Message
 from membership import LOG
@@ -17,16 +18,16 @@ class AtomicBroadcaster(object):
         self.hosts = hosts
         self.channels = [Channel(server_port, n + 1, self.msg_queue) \
                          for n in range(channel_count)]
-        LOG.info("atomicbroadcaster created")
         #TODO this is not accurate, need to flushout calc_sigma
         self.sigma = 5
-        self.__forwarder = mp.Process(target=self.__forwarder_worker,
-                                      daemon=True)
+        LOG.info("atomicbroadcaster created")
+        self.message_list = MessageList()
+        self.__forwarder = th.Thread(target=self.__forwarder_worker)
         self.__forwarder.start()
 
     #Forwards message (T,s,,h+1), on channels c+1,...,f+1-h
     def __forwarder_worker(self):
-        msg = None 
+        msg = None
         recv_time = None
         while True:
             recv_time, msg = self.msg_queue.get()
@@ -41,6 +42,9 @@ class AtomicBroadcaster(object):
                     for _, host in self.hosts.items():
                         msg.chan = i
                         chan.send(host.ip, host.port, msg.marshal())
+                #TODO insert into message list
+                accept_time = recv_time + len(self.channels) * self.sigma
+                self.message_list.add_message(accept_time, msg)
 
     def calc_sigma(self):
         """ Find average ping to all hosts """
@@ -59,11 +63,13 @@ class MessageList(object):
 
     def __init__(self):
         self.messages = list()
+        self.lock = th.Lock()
 
     def get_messages(self):
-        time = time.time()
         out = list()
         last_index = 0
+        self.lock.aqcuire()
+        time = time.time()
         for i, message in enumerate(self.messages):
             # if message is ready to be received
             if message[0] > time:
@@ -72,10 +78,13 @@ class MessageList(object):
             else:
                 break
         self.messages = self.messages[last_index:]
-        pass
+        self.lock.release()
+        return out
 
-    def add_message(self, new_message):
+    def add_message(self, accept_time, new_message):
+        self.lock.aqcuire()
         for i, message in enumerate(self.messages):
-            if new_message[0] < message.time[0]:
-                self.messages.insert(i, new_message)
+            if accept_time < message.time[0]:
+                self.messages.insert(i, (accept_time, new_message))
+        self.lock.release()
 
