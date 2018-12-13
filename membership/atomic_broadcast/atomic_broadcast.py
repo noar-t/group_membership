@@ -31,9 +31,9 @@ class AtomicBroadcaster(object):
         self.__forwarder.start()
 
         # XXX
-        # if server_port == 50000:
-            # time.sleep(2)
-            # self.broadcast(b'hi')
+        if server_port == 50000:
+            time.sleep(2)
+            self.broadcast(b'hi')
 
     def __add_to_c_history(self, msg):
         """
@@ -137,7 +137,7 @@ class MessageList(object):
         t = time.time()
         out = list()
         last_index = 0
-        self.lock.aqcuire()
+        self.lock.acquire()
         t = time.time()
         for i, message in enumerate(self.messages):
             # if message is ready to be received
@@ -151,7 +151,7 @@ class MessageList(object):
         return out
 
     def add_message(self, accept_time, new_message):
-        self.lock.aqcuire()
+        self.lock.acquire()
         for i, message in enumerate(self.messages):
             if accept_time < message.time[0]:
                 self.messages.insert(i, (accept_time, new_message))
@@ -170,7 +170,7 @@ class MessageList(object):
     def peek(self):
         """ Gives the first item of the MessageList """
         ret = None
-        self.lock.aqcuire()
+        self.lock.acquire()
         if len(self.messages) > 0:
             ret = self.messages[0]
         self.lock.release()

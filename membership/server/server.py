@@ -6,6 +6,7 @@ import pickle
 import time
 from membership import LOG
 from membership.atomic_broadcast import atomic_broadcast
+from membership.server import cli
 
 
 class Host(object):
@@ -30,8 +31,29 @@ class Server(object):
         # LOG.debug("server list %s", self.servers)
 
         self.broadcaster = atomic_broadcast.AtomicBroadcaster(self.port,
-                self.servers, 8)
+                                                              self.servers, 8)
+        self.commands = {
+            'bc': self.test_broadcast,
+        }
 
+        self.parser = cli.configure_parser()
+        LOG.info("starting loop")
+        while True:
+            cmd = input()
+            LOG.info("cmd: %s", cmd)
+            cmd = cmd.split()
+
+            args = self.parser.parse_args(cmd)
+            LOG.info(args)
+            if args.subcmd not in self.commands:
+                LOG.info("cmd not found")
+
+            self.commands[args.subcmd](args)
+
+    def test_broadcast(self, args):
+        self.broadcaster.broadcast(' '.join(args.message).encode())
+
+    def start(self):
         self.event_loop(self.port)
 
     def event_loop(self, port):
