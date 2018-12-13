@@ -34,7 +34,7 @@ class Channel(object):
     def send(self, ip, port, msg):
         """ Send a message to dest connected to the channel """
         msg.chan = self.channel_id
-        msg.host = ip.encode()
+        # msg.host = self.server_port
         dest_channel_port = port + self.channel_id
 
         # LOG.debug("sending M(%f, %s, m, %i)->c%i to %s:%i", msg.time,
@@ -46,12 +46,13 @@ class Channel(object):
         # messages are sized due to struct layout
 
         while True:
-            binary_msg, addr = self.socket.recvfrom(1056)
+            binary_msg, addr = self.socket.recvfrom(1044)
             # calculate the port of the server rather than the channel
             addr = (addr[0], 100 * (addr[1] // 100))
-            msg = Message.from_binary_msg(binary_msg, addr)
-            LOG.debug("received message from: %s on c%i", addr,
-                      msg.chan)
+            msg = Message.from_binary_msg(binary_msg)
+            msg.addr = addr
+            LOG.debug("received m(%f, %i, m, %i) from: %s on c%i", msg.time,
+                    msg.host, msg.hops, addr, msg.chan)
             self.msg_queue.put(msg)
 
 
@@ -60,7 +61,7 @@ class Message(object):
         if not copy:
             self.time = None  # float
             self.hops = 1  # int
-            self.host = host  # should be parsed to 15 char array
+            self.host = host  # int
             self.chan = chan
             self.data = data  # 1024 byte buffer
 
@@ -71,25 +72,25 @@ class Message(object):
             self.unmarshal(data)
 
     @classmethod
-    def from_binary_msg(cls, binary_msg, addr):
+    def from_binary_msg(cls, binary_msg):
         """ Initialize Message from a binary blob """
         msg = cls(None, binary_msg, None, copy=True)
         msg.recv_time = time.time()
         # LOG.debug("setting times: %f %f", time.time(), msg.time)
-        msg.addr = addr
+        msg.addr = msg.host
 
         return msg
 
     def marshal(self):
         """ Turns a message object into an transmittable format """
-        msg = struct.pack('di15si1024s', self.time,
+        msg = struct.pack('diii1024s', self.time,
                           self.hops, self.host, self.chan, self.data)
 
         return msg
 
     def unmarshal(self, data):
         """ Turns a recieved message back into a message object """
-        msg = struct.unpack('di15si1024s', data)
+        msg = struct.unpack('diii1024s', data)
         self.time = msg[0]
         self.hops = msg[1]
         self.host = msg[2]

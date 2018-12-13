@@ -8,15 +8,17 @@ from membership import LOG
 
 class AtomicBroadcaster(object):
 
-    def __init__(self, server_port, hosts, channel_count):
+    def __init__(self, server_id, server_port, hosts, channel_count):
         """
         :server_port: port of the server that this AtomicBroadcaster is running
         on
         :hosts: dict of hosts running in the cluster
         :channel_count: number of channels to create
         """
+        self.server_id = server_id
         self.msg_queue = mp.Queue()
         self.hosts = hosts
+        self.config = None
         self.channel_count = channel_count
         self.server_port = server_port
         self.c_hist_lock = th.Lock()
@@ -41,7 +43,7 @@ class AtomicBroadcaster(object):
         """
         self.c_hist_lock.acquire()
         new = False
-        key = (msg.time, msg.addr)
+        key = (msg.time, msg.host)
         if key not in self.c_history:
             self.c_history[key] = {'msg': msg, 'c': msg.chan}
             new = True
@@ -89,13 +91,13 @@ class AtomicBroadcaster(object):
 
         self.c_hist_lock.acquire()
 
-        highest_chan_recv = self.c_history[(msg.time, msg.addr)]['c']  # c
+        highest_chan_recv = self.c_history[(msg.time, msg.host)]['c']  # c
         highest_chan_send = self.channel_count - msg.hops  # f + 1 - h
 
         # check if c < f + 1 - h
         if highest_chan_recv < highest_chan_send:
             LOG.info("%i is forwarding msg from %i", self.server_port,
-                     msg.addr[1])
+                     msg.host)
             msg.add_hop()
             # forward on channels c + 1, ..., f + 1 - h
             for channel in self.channels[highest_chan_recv:highest_chan_send]:
@@ -119,9 +121,41 @@ class AtomicBroadcaster(object):
         """Send message on all channels"""
         msg = Message(None, msg_data, None)
         msg.time = time.time()
+        msg.host = self.server_id
         for channel in self.channels:
             for _, host in self.hosts.items():
                 channel.send(host.ip, host.port, msg)
+
+    def configure(self, config):
+        self.config = config
+
+    def test_broadcast(self, msg_data, config=None):
+        if config is None:
+            config = self.config
+        if config is None:
+            return self.broadcast(msg_data)
+
+        msg = Message(None, msg_data, None)
+        msg.time = time.time()
+        msg.host = self.server_id
+
+        server_config = config[str(self.server_id)]
+        for c in self.channels:
+            channel_config = server_config[str(c.channel_id)]
+            if channel_config[0][0] == 0:
+                LOG.info("skipping c%i at server %i", c.channel_id,
+                         self.server_id)
+                continue
+            delay = channel_config[0][1]
+            if delay > 0:
+                LOG.info("add %i delay to c%i at server %i", delay,
+                         c.channel_id, self.server_id)
+                time.sleep(delay)
+            for id, host in self.hosts.items():
+                if channel_config[id + 1] == 0:
+                    # continue
+                    break
+                c.send(host.ip, host.port, msg)
 
 
 class MessageList(object):
@@ -137,7 +171,7 @@ class MessageList(object):
         t = time.time()
         out = list()
         last_index = 0
-        self.lock.aqcuire()
+        self.lock.acquire()
         t = time.time()
         for i, message in enumerate(self.messages):
             # if message is ready to be received
@@ -158,7 +192,7 @@ class MessageList(object):
         return ret
 
     def add_message(self, accept_time, new_message):
-        self.lock.aqcuire()
+        self.lock.acquire()
         for i, message in enumerate(self.messages):
             if accept_time < message.time[0]:
                 self.messages.insert(i, (accept_time, new_message))
@@ -177,7 +211,7 @@ class MessageList(object):
     def peek(self):
         """ Gives the first item of the MessageList """
         ret = None
-        self.lock.aqcuire()
+        self.lock.acquire()
         if len(self.messages) > 0:
             ret = self.messages[0]
         self.lock.release()

@@ -1,3 +1,4 @@
+import threading as th
 import sys
 import logging
 from membership import LOG, cli, cluster
@@ -33,16 +34,26 @@ def list_servers(c, *args):
     print(c)
 
 
+def send_cmd(c, *args):
+    """
+    send command to running server
+    """
+    server_id = int(args[0])
+    # server_cmd = args[1]
+    c.send(server_id, ' '.join(args[1:]))
+
+
 OPTIONS = {
     'add': add_server,
     'remove': remove_server,
     'ls': list_servers,
+    'send': send_cmd,
 }
 
 
 def run_server(args):
     s = server.Server(args)
-    s.start()
+    # server_thread = s.start()
 
 
 def run_cluster(args):

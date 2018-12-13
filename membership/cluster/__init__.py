@@ -1,5 +1,5 @@
 import os
-from subprocess import Popen
+from subprocess import Popen, PIPE
 from membership import LOG
 
 
@@ -41,9 +41,20 @@ class Cluster(object):
         LOG.info('starting server: %i', id)
         LOG.debug('arguments: %s', args)
         # spawn child process
-        p = Popen(args, stdout=log, stderr=log)
+        p = Popen(args, stdout=log, stderr=log, stdin=PIPE)
         self.servers[id] = {'process': p, 'log': log}
         return True
+
+    def send(self, id, buf):
+        if id not in self.servers:
+            LOG.error("server %i does not exists", id)
+            return False
+        LOG.debug("sending %s to server %i", buf, id)
+        buf += '\n'
+        self.servers[id]['process'].stdin.write(buf.encode())
+        self.servers[id]['process'].stdin.flush()
+        return True
+
 
     def remove(self, id):
         """
