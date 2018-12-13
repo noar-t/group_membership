@@ -43,7 +43,7 @@ class AtomicBroadcaster(object):
         """
         self.c_hist_lock.acquire()
         new = False
-        key = (msg.time, msg.addr)
+        key = (msg.time, msg.host)
         if key not in self.c_history:
             self.c_history[key] = {'msg': msg, 'c': msg.chan}
             new = True
@@ -91,13 +91,13 @@ class AtomicBroadcaster(object):
 
         self.c_hist_lock.acquire()
 
-        highest_chan_recv = self.c_history[(msg.time, msg.addr)]['c']  # c
+        highest_chan_recv = self.c_history[(msg.time, msg.host)]['c']  # c
         highest_chan_send = self.channel_count - msg.hops  # f + 1 - h
 
         # check if c < f + 1 - h
         if highest_chan_recv < highest_chan_send:
             LOG.info("%i is forwarding msg from %i", self.server_port,
-                     msg.addr[1])
+                     msg.host)
             msg.add_hop()
             # forward on channels c + 1, ..., f + 1 - h
             for channel in self.channels[highest_chan_recv:highest_chan_send]:
@@ -121,6 +121,7 @@ class AtomicBroadcaster(object):
         """Send message on all channels"""
         msg = Message(None, msg_data, None)
         msg.time = time.time()
+        msg.host = self.server_id
         for channel in self.channels:
             for _, host in self.hosts.items():
                 channel.send(host.ip, host.port, msg)
@@ -133,12 +134,11 @@ class AtomicBroadcaster(object):
             config = self.config
         if config is None:
             return self.broadcast(msg_data)
-        LOG.info("test1")
 
         msg = Message(None, msg_data, None)
         msg.time = time.time()
+        msg.host = self.server_id
 
-        LOG.info("sever id %i", self.server_id)
         server_config = config[str(self.server_id)]
         for c in self.channels:
             channel_config = server_config[str(c.channel_id)]
@@ -147,9 +147,9 @@ class AtomicBroadcaster(object):
                          self.server_id)
                 continue
             delay = channel_config[0][1]
-            LOG.info("add %i delay to c%i at server %i", delay,
-                     c.channel_id, self.server_id)
             if delay > 0:
+                LOG.info("add %i delay to c%i at server %i", delay,
+                         c.channel_id, self.server_id)
                 time.sleep(delay)
             for id, host in self.hosts.items():
                 if channel_config[id + 1] == 0:
