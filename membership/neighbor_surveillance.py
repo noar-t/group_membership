@@ -8,6 +8,8 @@ import threading as th
 from membership.atomic_broadcast.atomic_broadcast import AtomicBroadcaster
 from membership.atomic_broadcast.channel import Message
 
+# TODO I think the group id needs to have a offset otherwise the message will be rejected
+# TODO make 'leader' to schedulue list send initiation
 class AttendanceListGroup(object):
 
     def __init__(self, host, period=5):
@@ -17,7 +19,6 @@ class AttendanceListGroup(object):
 
         self.period = period
         self.cur_period = 0
-        self.list_recv = False
 
         self.host = host
 
@@ -50,19 +51,13 @@ class AttendanceListGroup(object):
         msg = None
 
         while True:
-            # If first host start list propogation
-            if self.cur_period > 0:
-                if self.host.id == min(self.cur_members):
-                    self.forward_list(list())
-
             remaining_t = time.time() % self.period
             msg = self.atomic_b.wait_for_message(remaining_t)
 
             # period is over
             if msg is None:
-                # TODO fix reconfigure on first period due to no list also add 'leader'
-                if not self.list_recv and not self.cur_period == 0:
-                    self.send_reconfigure()
+                if not self.cur_period == 0:
+                    self.send_ping()
             else:
                 self.msg_handler(msg)
 
@@ -87,7 +82,7 @@ class AttendanceListGroup(object):
             if 'recon' in msg_dict:
                 # Join the new group
                 self.cur_period = 0
-                self.cur_group =  msg_dict['gid']
+                self.cur_group = msg_dict['gid']
                 self.past_members = list()
                 self.cur_members = [self.host.id]
 
@@ -97,20 +92,15 @@ class AttendanceListGroup(object):
                     self.cur_members.append(msg['id'])
 
             # forward list only if its current group
-            elif 'list' in msg_dict:
+            elif 'ping' in msg_dict:
                 if msg_dict['gid'] == self.cur_group:
-                    self.list_recv = True
-                    if self.host.id == max(self.cur_members):
-                        self.forward_list(msg_dict['members'])
+                    # TODO respond to ping also need to set somethign
+                    # for reconfiguration if both prev and next host dont ping
 
-
-
-        # we can either use select or socket.settimeout() in order to wait
-        # period time to receive a list before issuing reconfiguration request
-    def forward_list(self, members):
-        msg_dict = {'list' : True,
+    def send_ping(self):
+        msg_dict = {'ping' : True,
                     'gid' : self.cur_group,
-                    'members' : members.append(self.host.id)}
+                    'sender' : self.host.id}
         msg_bytes = json.dumps(msg_dict).encode()
         msg_size = struct.pack('i', len(msg_bytes))
         dest = self.get_next_host()
