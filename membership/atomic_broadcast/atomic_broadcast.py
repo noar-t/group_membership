@@ -57,6 +57,9 @@ class AtomicBroadcaster(object):
     def __forwarder_worker(self):
         while True:
             msg = self.msg_queue.get()
+            if msg.hops == -1:
+                self.message_list.add_message(0, msg)
+                continue
             if not msg.is_late(self.channel_count // 2, self.sigma):
                 if msg.is_timely(self.sigma):
                     if self.__add_to_c_history(msg):
