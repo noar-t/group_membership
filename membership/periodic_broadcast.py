@@ -7,7 +7,7 @@ from membership import LOG
 
 class PeriodicBroadcastGroup(object):
 
-    msg_fmt = '?dii' # new-group(t/f), groupid, pid and ip; 35 bytes
+    msg_fmt = '?di' # new-group(t/f), groupid, id
 
     def __init__(self, broadcaster, host, period=5):
         self.past_members = list()
@@ -59,7 +59,7 @@ class PeriodicBroadcastGroup(object):
     def send_broadcast(self, new_group=False):
         """ Broadcast a message to all hosts """
         msg = struct.pack(self.msg_fmt, new_group, \
-                          self.cur_group, os.getpid(), self.host.id)
+                          self.cur_group, self.host.id)
         self.atomic_b.broadcast(msg)
 
     def msg_handler(self, msg):
@@ -78,15 +78,16 @@ class PeriodicBroadcastGroup(object):
         if msg[1] < time.time():
             # if new-group
             if msg[0]:
+                LOG.info("new group requested")
                 self.cur_group = msg[1]
                 self.cur_period = 0
-                self.cur_members = [(msg[2], msg[3])]
+                self.cur_members = [self.host.id]
                 self.past_members = list()
 
             # present broadcast
             else:
                 # put the member in the group
-                self.cur_members.append((msg[2], msg[3]))
+                self.cur_members.append(msg[3])
 
     def wait_for_message(self, timeout):
         """ Gets messages blocking for a period """
