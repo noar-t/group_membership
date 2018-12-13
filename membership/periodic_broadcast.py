@@ -37,6 +37,7 @@ class PeriodicBroadcastGroup(object):
         # create new group upon initialization
         self.cur_group = time.time() + self.atomic_b.sigma
         self.send_broadcast(new_group=True)
+        self.send_broadcast()
 
         # Processs messages and broadcast present
         while True:
@@ -53,6 +54,7 @@ class PeriodicBroadcastGroup(object):
                 self.cur_members = [self.host.id]
                 self.cur_period += 1
             else:
+                LOG.info("in else")
                 self.msg_handler(msg)
             self.send_broadcast()
 
@@ -69,12 +71,14 @@ class PeriodicBroadcastGroup(object):
         # received a message in the form form (delivery time, msg)
         # message not ready to be delivered but will be this period
         if t < msg[0] and rem_t < self.period:
+            LOG.info("bla")
             self.msg_handler(self.wait_for_message(rem_t))
             # TODO make better abstraction
             msg =  self.atomic_b.message_list.pop()
 
         msg = struct.unpack(self.msg_fmt, msg[1])
         # if on time; myclock > V abort
+        LOG.info("msg 1: %f\n%f", msg[1], time.time())
         if msg[1] < time.time():
             # if new-group
             if msg[0]:
@@ -86,6 +90,7 @@ class PeriodicBroadcastGroup(object):
 
             # present broadcast
             else:
+                LOG.info("member added %d", msg[3])
                 # put the member in the group
                 self.cur_members.append(msg[3])
 

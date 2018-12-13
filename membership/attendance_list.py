@@ -10,7 +10,7 @@ from membership.atomic_broadcast.channel import Message
 
 class AttendanceListGroup(object):
 
-    def __init__(self, host, period=5):
+    def __init__(self, broadcaster, host, period=5):
         self.cur_members = list()
         self.past_members = list()
         self.cur_group = 0
@@ -21,9 +21,10 @@ class AttendanceListGroup(object):
 
         self.host = host
 
-        self.atomic_b = AtomicBroadcaster(10, ['TODO'], 10)
+        # self.atomic_b = AtomicBroadcaster(10, ['TODO'], 10)
+        self.atomic_b = broadcaster
 
-        self.__r_thread = th.Thread(target=self.__recv_worker())
+        self.__r_thread = th.Thread(target=self.__recv_worker)
         self.__r_thread.start()
 
 
@@ -56,10 +57,12 @@ class AttendanceListGroup(object):
                     self.forward_list(list())
 
             remaining_t = time.time() % self.period
+            LOG.debug("remaining %f", remaining_t)
             msg = self.atomic_b.wait_for_message(remaining_t)
 
             # period is over
             if msg is None:
+                LOG.debug("cur memeber %s", self.cur_members)
                 # TODO fix reconfigure on first period due to no list also add 'leader'
                 if not self.list_recv and not self.cur_period == 0:
                     self.send_reconfigure()

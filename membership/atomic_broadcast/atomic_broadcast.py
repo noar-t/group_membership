@@ -202,11 +202,17 @@ class MessageList(object):
 
     def add_message(self, accept_time, new_message):
         self.lock.acquire()
+        if len(self.messages) == 0:
+            self.messages.append((accept_time, new_message))
+            self.sema.release()
+            self.lock.release()
+            return
         for i, message in enumerate(self.messages):
-            if accept_time < message.time[0]:
+            if accept_time < message[0]:
                 self.messages.insert(i, (accept_time, new_message))
                 # TODO experiemental
                 if i == 0:
+                    LOG.debug("UPPPP")
                     self.sema.release() # signal that there is a new first item
         self.lock.release()
 

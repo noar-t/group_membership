@@ -8,6 +8,7 @@ from membership import LOG
 from membership.atomic_broadcast.atomic_broadcast import AtomicBroadcaster
 from membership.server import cli
 from membership.periodic_broadcast import PeriodicBroadcastGroup
+from membership.attendance_list import AttendanceListGroup
 
 
 class Host(object):
@@ -34,9 +35,10 @@ class Server(object):
         self.broadcaster = AtomicBroadcaster(args.id, self.port,
                                              self.servers, 8)
 
-        # if args.id == 0:
         self.periodic_group = PeriodicBroadcastGroup(self.broadcaster,
                                                      self.servers[args.id])
+        # self.attendance = AttendanceListGroup(self.broadcaster,
+                                                     # self.servers[args.id])
         self.commands = {
             'bc': self.__test_broadcast,
             'config': self.__configure_channels,
