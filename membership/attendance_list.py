@@ -1,81 +1,132 @@
 import struct
 import select
 import socket
+import json
 import time
+import os
 import threading as th
 from membership.atomic_broadcast.atomic_broadcast import AtomicBroadcaster
-from membership.atomic_broadcast.channel import Message
 
-# TODO reconfiguration port must be differnt than typical broadcast port because
-# I dont want to have to identify type of messages
-# TODO how do i map pid to port/ip because reconfiguration broadcasts will be
-# just a pid
 class AttendanceListGroup(object):
+    #recon_fmt = '??di15s' # reconfig(y/n), present (y/n), new group id, host id, ip
+    #list_fmt = '?id25i15s' # reconfig(y/n), # of elements, group_id, actual list, ip
 
-    recon_fmt = 'i' # only used for reconfiguration
-    list_fmt = 'i25i' # # of elements, actual list
-
-    def __init__(self, host,  port, period=5,leader=None):
+    def __init__(self, host,  port, period=5):
         self.set_lock = th.Lock()
-        self.cur_group = set()
-        self.cur_period = None
-        self.host = None # TODO ip?
+        self.cur_group = list()
+
         self.period = period
-        self.port = port
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # TODO needs to be assigned like the broadcaster
-        self.sock.bind((socket.gethostbyname(socket.gethostname()), port))
-        # TODO fill in boadcaster parameters. I dont know how the cluser params
-        # work
+        self.cur_period = 0
+
+        self.host = host # TODO ip?
+        self.next_host = None
+
         self.atomic_b = AtomicBroadcaster(10, ['TODO'], 10)
 
-        self.__r_thread = th.Thread(target=self.__reconf_recv_worker())
+        self.__r_thread = th.Thread(target=self.__recv_worker())
         self.__r_thread.start()
-        self.__l_thread = th.Thread(target=self.__list_recv_worker(), args=())
-        self.__l_thread.start()
 
 
     def send_reconfigure(self):
         """ Sends a reconfigure request for the group consisting of the id """
-        msg = struct.pack(recon_fmt, os.get_pid())
-        self.atomic_b.broadcast(msg)
+        # reconfigure message
+        t = time.time()
+        msg_dict = {'recon' : True,
+                    'gid' : t }
+        msg_bytes = json.dumps(msg_dict).encode()
+        msg_size = struct.pack('i', len(msg_bytes))
+        self.atomic_b.broadcast(msg_size + msg_bytes)
+        #msg = struct.pack(self.recon_fmt, True, False, t, os.getpid())
+        #self.atomic_b.broadcast(msg)
+        ## present message
+        msg_dict = {'present' : False,
+                    'gid' : t,
+                    'id' : self.host.id }
+        msg_bytes = json.dumps(msg_dict).encode()
+        msg_size = struct.pack('i', len(msg_bytes))
+        self.atomic_b.broadcast(msg_size + msg_bytes)
+        #msg = struct.pack(self.recon_fmt, True, True, t, os.getpid())
+        #self.atomic_b.broadcast(msg)
 
-    def __reconf_recv_worker(self):
-        # TODO there is 2 cases, we wait until there is an item in the list
-        # or the period is over gonna use a semaphore i think just need to
-        # decide best way to put it in the messagelist peek every time
-        # semaphore is upped and if time will be in period pop
-        # TODO Naeively wait until end of period before checking messages
+    def __recv_worker(self):
+        # RECONFIGURE UPON INIT
+        self.send_reconfigure()
         msg = None
+
         while True:
             remaining_t = time.time() % self.period
             msg = self.atomic_b.wait_for_message(remaining_t)
+
+            # period is over
             if msg is None:
                 self.last_group = self.cur_group
+                # TODO do I put me in there
                 self.cur_group = list()
-            msg = struct.unpack('i', msg)
-            #TODO fix
-            self.add_host(msg[0])
-        pass
+            else:
+                self.msg_handler(msg)
 
-    def __list_recv_list_worker(self):
-        """ Waits for an attendance list, if none arrive by period
-        requests new group to be formed. However if one is received forward the
-        list to the next host """
-        data = None
-        msg = None
-        while True:
-            readable, _, _ = select.select([self.sock], [], [], timeout=self.period)
-            for sock in readable:
-                data = sock.recvfrom(104)
-                msg = struct.unpack(list_fmt, data)
-                members = list()
-                num_items = msg[0]
-                for i in range(num_items):
-                    members.append(msg[i+1]) # basically umarshal the attendance list
-                for i in range(len(members), 25): # 25 comes form struct list format
-                    members.append(-1)
-                self.forward_list(num_items, members)
+    def msg_handler(self, msg):
+        """ Handle receipt of broadcasts """
+        t = time.time()
+        # received a message in the form form (delivery time, msg)
+        msg_t = msg[0]
+        rem_t = ((msg_t - self.cur_group) - (self.period * self.cur_period))
+        msg = json.loads(msg[1].decode())
+
+        # message not ready to be delivered but will be this period
+        if t < msg_t and rem_t < self.period:
+            self.msg_handler(self.atomic_b.wait_for_message(rem_t))
+            # This might be racey
+            msg =  self.atomic_b.message_list.pop()
+
+        msg_size = struct.unpack('i', msg[1][0:4])
+        msg_dict = json.loads(msg[1][4:5+msg_size[0]])
+        # if on time; myclock > V abort
+        if msg_dict['gid'] < time.time():
+            # if reconfigure
+            if msg[0]: #TODO fix struct to have time stamp within
+                # present message TODO check group id matches
+                msg = msg_tmp
+                if msg[1]:
+                    self.cur_members.append((msg[3], msg[4]))
+                # just a new group
+                else:
+                    # TODO change cur period, group name, cancel any list
+                    # receives in the period
+                    self.cur_period = 0
+                    self.cur_group =  msg[2]
+                    self.past_members = list()
+                    self.cur_members = list()
+
+            # list message
+            else:
+                msg = struct.unpack(self.list_fmt, msg[1])
+                # put the member in the group
+                # TODO forward list; need to unpack list
+                # check group id
+                self.forward_list(None, None)
+
+    #def __list_recv_list_worker(self):
+    #    """ Waits for an attendance list, if none arrive by period
+    #    requests new group to be formed. However if one is received forward the
+    #    list to the next host """
+    #    # TODO we can do some shit and just send it to an existing channel for the 
+    #    # next process. This solves the issue of waiting on multiple things. We can
+    #    # just wait on the Message list
+    #    data = None
+    #    msg = None
+    #    while True:
+    #        readable, _, _ = select.select([self.sock], [], [], timeout=self.period)
+    #        for sock in readable:
+    #            data = sock.recvfrom(104)
+    #            msg = struct.unpack(list_fmt, data)
+    #            members = list()
+    #            num_items = msg[0]
+    #            for i in range(num_items):
+    #                members.append(msg[i+1]) # basically umarshal the attendance list
+    #            for i in range(len(members), 25): # 25 comes form struct list format
+    #                members.append(-1)
+    #            self.forward_list(num_items, members)
 
 
         # we can either use select or socket.settimeout() in order to wait

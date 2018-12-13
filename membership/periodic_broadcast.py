@@ -3,7 +3,6 @@ import time
 import os
 import threading as th
 from membership.atomic_broadcast.atomic_broadcast import AtomicBroadcaster
-from membership.atomic_broadcast.channel import Message
 
 class PeriodicBroadcastGroup(object):
 
@@ -41,6 +40,7 @@ class PeriodicBroadcastGroup(object):
             # if there were no messages, the period is over
             if msg is None:
                 self.past_members = self.cur_group
+                #TODO do I put me in here
                 self.cur_members = list()
             else:
                 self.msg_handler(msg)
@@ -49,7 +49,7 @@ class PeriodicBroadcastGroup(object):
 
     def send_broadcast(self, new_group=False):
         """ Broadcast a message to all hosts """
-        msg = struct.pack(msg_fmt, new_group, \
+        msg = struct.pack(self.msg_fmt, new_group, \
                           self.cur_group, os.getpid(), self.host)
         self.atomic_b.broadcast(msg)
 
@@ -64,7 +64,7 @@ class PeriodicBroadcastGroup(object):
             # TODO make better abstraction
             msg =  self.atomic_b.message_list.pop()
 
-        msg = struct.unpack(msg_fmt, msg[1])
+        msg = struct.unpack(self.msg_fmt, msg[1])
         # if on time; myclock > V abort
         if msg[1] < time.time():
             # if new-group
