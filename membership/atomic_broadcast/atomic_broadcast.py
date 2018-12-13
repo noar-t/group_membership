@@ -8,15 +8,17 @@ from membership import LOG
 
 class AtomicBroadcaster(object):
 
-    def __init__(self, server_port, hosts, channel_count):
+    def __init__(self, server_id, server_port, hosts, channel_count):
         """
         :server_port: port of the server that this AtomicBroadcaster is running
         on
         :hosts: dict of hosts running in the cluster
         :channel_count: number of channels to create
         """
+        self.server_id = server_id
         self.msg_queue = mp.Queue()
         self.hosts = hosts
+        self.config = None
         self.channel_count = channel_count
         self.server_port = server_port
         self.c_hist_lock = th.Lock()
@@ -31,9 +33,9 @@ class AtomicBroadcaster(object):
         self.__forwarder.start()
 
         # XXX
-        if server_port == 50000:
-            time.sleep(2)
-            self.broadcast(b'hi')
+        # if server_port == 50000:
+            # time.sleep(2)
+            # self.broadcast(b'hi')
 
     def __add_to_c_history(self, msg):
         """
@@ -122,6 +124,38 @@ class AtomicBroadcaster(object):
         for channel in self.channels:
             for _, host in self.hosts.items():
                 channel.send(host.ip, host.port, msg)
+
+    def configure(self, config):
+        self.config = config
+
+    def test_broadcast(self, msg_data, config=None):
+        if config is None:
+            config = self.config
+        if config is None:
+            return self.broadcast(msg_data)
+        LOG.info("test1")
+
+        msg = Message(None, msg_data, None)
+        msg.time = time.time()
+
+        LOG.info("sever id %i", self.server_id)
+        server_config = config[str(self.server_id)]
+        for c in self.channels:
+            channel_config = server_config[str(c.channel_id)]
+            if channel_config[0][0] == 0:
+                LOG.info("skipping c%i at server %i", c.channel_id,
+                         self.server_id)
+                continue
+            delay = channel_config[0][1]
+            LOG.info("add %i delay to c%i at server %i", delay,
+                     c.channel_id, self.server_id)
+            if delay > 0:
+                time.sleep(delay)
+            for id, host in self.hosts.items():
+                if channel_config[id + 1] == 0:
+                    # continue
+                    break
+                c.send(host.ip, host.port, msg)
 
 
 class MessageList(object):

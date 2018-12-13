@@ -16,16 +16,17 @@ ARG_SETS = {
          {'help': 'list of servers in the cluster', 'metavar': 'IP:ID',
           'nargs': '*'}),),
     'BC': (
-        (('-f', '--file'),
-         {'help': 'file for failure configuration', 'required': True,
-          'metavar': 'STR', 'type': str, 'action': 'store'}),
         (('-m', '--message'),
          {'help': 'message to broadcast', 'required': True,
           'metavar': 'STR', 'type': str, 'action': 'store'}),),
+    'CONFIG': (
+        (('-f', '--file'),
+         {'help': 'file for failure configuration',
+          'metavar': 'STR', 'type': str, 'action': 'store'}),),
 }
 SUBCMDS = {
-    'bc': ('run server program', ('BC',)),
-    # 'cluster': ('run cluster program', ('LOG', 'COUNT')),
+    'bc': ('run server program', ('BC', 'CONFIG')),
+    'config': ('run cluster program', ('CONFIG',)),
 }
 
 

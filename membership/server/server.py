@@ -1,4 +1,4 @@
-import argparse
+import json
 import socket
 import selectors
 import types
@@ -30,10 +30,12 @@ class Server(object):
 
         # LOG.debug("server list %s", self.servers)
 
-        self.broadcaster = atomic_broadcast.AtomicBroadcaster(self.port,
+        self.broadcaster = atomic_broadcast.AtomicBroadcaster(args.id,
+                                                              self.port,
                                                               self.servers, 8)
         self.commands = {
-            'bc': self.test_broadcast,
+            'bc': self.__test_broadcast,
+            'config': self.__configure_channels,
         }
 
         self.parser = cli.configure_parser()
@@ -50,8 +52,26 @@ class Server(object):
 
             self.commands[args.subcmd](args)
 
-    def test_broadcast(self, args):
-        self.broadcaster.broadcast(' '.join(args.message).encode())
+    def __test_broadcast(self, args):
+        config = None
+        if args.file is not None:
+            with open(args.file) as f:
+                config = f.read()
+                config = json.loads(config)
+                LOG.debug("json loaded %s", config)
+
+        # self.broadcaster.broadcast(' '.join(args.message).encode())
+        # self.__configure_channels(self, args)
+        self.broadcaster.test_broadcast(' '.join(args.message).encode(),
+                                        config)
+
+    def __configure_channels(self, args):
+        if args.file is not None:
+            with open(args.file) as f:
+                config = f.read()
+                config = json.loads(config)
+                LOG.debug("json loaded %s", config)
+        self.broadcaster.configure(config)
 
     def start(self):
         self.event_loop(self.port)

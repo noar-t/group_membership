@@ -50,8 +50,8 @@ class Channel(object):
             # calculate the port of the server rather than the channel
             addr = (addr[0], 100 * (addr[1] // 100))
             msg = Message.from_binary_msg(binary_msg, addr)
-            LOG.debug("received message from: %s on c%i", addr,
-                      msg.chan)
+            LOG.debug("received m(%f, p, m, %i) from: %s on c%i", msg.time,
+                    msg.hops, addr, msg.chan)
             self.msg_queue.put(msg)
 
 
