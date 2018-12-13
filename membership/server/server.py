@@ -5,8 +5,9 @@ import types
 import pickle
 import time
 from membership import LOG
-from membership.atomic_broadcast import atomic_broadcast
+from membership.atomic_broadcast.atomic_broadcast import AtomicBroadcaster
 from membership.server import cli
+from membership.periodic_broadcast import PeriodicBroadcastGroup
 
 
 class Host(object):
@@ -30,16 +31,18 @@ class Server(object):
 
         # LOG.debug("server list %s", self.servers)
 
-        self.broadcaster = atomic_broadcast.AtomicBroadcaster(args.id,
-                                                              self.port,
-                                                              self.servers, 8)
+        self.broadcaster = AtomicBroadcaster(args.id, self.port,
+                                             self.servers, 8)
+
+        # if args.id == 0:
+        self.periodic_group = PeriodicBroadcastGroup(self.broadcaster,
+                                                     self.servers[args.id])
         self.commands = {
             'bc': self.__test_broadcast,
             'config': self.__configure_channels,
         }
 
         self.parser = cli.configure_parser()
-        LOG.info("starting loop")
         while True:
             cmd = input()
             LOG.info("cmd: %s", cmd)

@@ -120,7 +120,7 @@ class AtomicBroadcaster(object):
         return self.message_list.get_messages()
 
     def wait_for_message(self, timeout):
-        return self.message_list.wait_for_message(timeout)
+        return self.message_list.wait_for_msg(timeout)
 
     def broadcast(self, msg_data):
         """Send message on all channels"""
@@ -211,9 +211,12 @@ class MessageList(object):
         self.lock.release()
 
     def wait_for_msg(self, timeout):
+        LOG.info("waiting on sema")
         if self.sema.acquire(True, timeout):
+            LOG.info("acq on sema")
             return self.peek()
         else:
+            LOG.info("not acq on sema")
             return None
 
 

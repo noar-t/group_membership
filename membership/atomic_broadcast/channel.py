@@ -37,8 +37,8 @@ class Channel(object):
         # msg.host = self.server_port
         dest_channel_port = port + self.channel_id
 
-        # LOG.debug("sending M(%f, %s, m, %i)->c%i to %s:%i", msg.time,
-                  # self.server_port, msg.hops, msg.chan, ip, port)
+        LOG.debug("sending M(%f, %s, m, %i)->c%i to %s:%i", msg.time,
+                  self.server_port, msg.hops, msg.chan, ip, port)
         self.socket.sendto(msg.marshal(), (ip, dest_channel_port))
 
     def __recv_worker(self):

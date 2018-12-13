@@ -3,23 +3,28 @@ import time
 import os
 import threading as th
 from membership.atomic_broadcast.atomic_broadcast import AtomicBroadcaster
+from membership import LOG
 
 class PeriodicBroadcastGroup(object):
 
-    msg_fmt = '?di15s' # new-group(t/f), groupid, pid and ip; 35 bytes
+    msg_fmt = '?dii' # new-group(t/f), groupid, pid and ip; 35 bytes
 
-    def __init__(self, all_hosts, host, period=5):
+    def __init__(self, broadcaster, host, period=5):
         self.past_members = list()
         self.cur_members = list()
 
         self.cur_group = None
         self.cur_period = 0
-        self.host = None #TODO ip?
+        self.host = host #TODO ip?
         self.period = period
-        self.atomic_b = AtomicBroadcaster(10, ['TODO'], 10)
+        # self.atomic_b = AtomicBroadcaster(10, ['TODO'], 10)
+        self.atomic_b = broadcaster
 
-        self.__b_thread = th.Thread(target=self.__broadcast_worker())
+        LOG.info("test2")
+        self.__b_thread = th.Thread(target=self.__broadcast_worker)
+        LOG.info("test3")
         self.__b_thread.start()
+        LOG.info("test5")
 
     def get_members(self):
         """ Returns a list of the most recent members of the group """
@@ -35,21 +40,26 @@ class PeriodicBroadcastGroup(object):
 
         # Processs messages and broadcast present
         while True:
+            LOG.info("test1")
             timeout = self.period - ((time.time() - self.cur_group) % self.period)
+            # timeout = self.period - time.time() - self.cur_group - self.cur_period * self.period
+            LOG.info("waiting timeout %f", timeout)
             msg = self.wait_for_message(timeout)
+            LOG.info("after waiting")
             # if there were no messages, the period is over
             if msg is None:
-                self.past_members = self.cur_group
+                LOG.info("waiting %s", self.get_members())
+                self.past_members = self.cur_members
                 self.cur_members = [self.host.id]
+                self.cur_period += 1
             else:
                 self.msg_handler(msg)
             self.send_broadcast()
-            self.cur_period += 1
 
     def send_broadcast(self, new_group=False):
         """ Broadcast a message to all hosts """
         msg = struct.pack(self.msg_fmt, new_group, \
-                          self.cur_group, os.getpid(), self.host)
+                          self.cur_group, os.getpid(), self.host.id)
         self.atomic_b.broadcast(msg)
 
     def msg_handler(self, msg):
