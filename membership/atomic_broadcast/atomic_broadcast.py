@@ -102,6 +102,8 @@ class AtomicBroadcaster(object):
             # forward on channels c + 1, ..., f + 1 - h
             for channel in self.channels[highest_chan_recv:highest_chan_send]:
                 for _, host in self.hosts.items():
+                    if host.id == self.server_id:
+                        continue
                     channel.send(host.ip, host.port, msg)
 
         self.c_hist_lock.release()
@@ -124,6 +126,8 @@ class AtomicBroadcaster(object):
         msg.host = self.server_id
         for channel in self.channels:
             for _, host in self.hosts.items():
+                if host.id == self.server_id:
+                    continue
                 channel.send(host.ip, host.port, msg)
 
     def configure(self, config):
@@ -152,6 +156,8 @@ class AtomicBroadcaster(object):
                          c.channel_id, self.server_id)
                 time.sleep(delay)
             for id, host in self.hosts.items():
+                if id == self.server_id:
+                    continue
                 if channel_config[id + 1] == 0:
                     # continue
                     break
