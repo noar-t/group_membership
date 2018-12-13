@@ -30,7 +30,7 @@ class PeriodicBroadcastGroup(object):
         """ Broadcasts present every period time units """
         # group should be V + pi because of reconfiguration latency
         # create new group upon initialization
-        self.cur_group = time.time() + self.period
+        self.cur_group = time.time() + self.atomic_b.sigma
         self.send_broadcast(new_group=True)
 
         # Processs messages and broadcast present
@@ -40,8 +40,7 @@ class PeriodicBroadcastGroup(object):
             # if there were no messages, the period is over
             if msg is None:
                 self.past_members = self.cur_group
-                #TODO do I put me in here
-                self.cur_members = list()
+                self.cur_members = [self.host.id]
             else:
                 self.msg_handler(msg)
             self.send_broadcast()
@@ -80,7 +79,7 @@ class PeriodicBroadcastGroup(object):
                 self.cur_members.append((msg[2], msg[3]))
 
     def wait_for_message(self, timeout):
-        """ Gets messages blocking for a period """ 
+        """ Gets messages blocking for a period """
         # calculate time left in current period
         return self.atomic_b.wait_for_message(timeout)
 
