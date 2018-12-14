@@ -1,4 +1,5 @@
 import os
+import sys
 from subprocess import Popen, PIPE
 from membership import LOG
 
@@ -41,7 +42,10 @@ class Cluster(object):
         LOG.info('starting server: %i', id)
         LOG.debug('arguments: %s', args)
         # spawn child process
-        p = Popen(args, stdout=log, stderr=log, stdin=PIPE)
+        if self.args.debug:
+            p = Popen(args, stdout=sys.stdout, stderr=sys.stderr, stdin=PIPE)
+        else:
+            p = Popen(args, stdout=log, stderr=log, stdin=PIPE)
         self.servers[id] = {'process': p, 'log': log}
         return True
 
@@ -65,6 +69,7 @@ class Cluster(object):
             LOG.error("server %i does not exists", id)
             return False
         LOG.info("forcibly termination server %i", id)
+        self.servers[id]['log'].close()
         self.servers[id]['process'].kill()
         del self.servers[id]
 
@@ -72,8 +77,8 @@ class Cluster(object):
         """terminate cluster"""
 
         for _, server in self.servers.items():
-            server['process'].kill()
             server['log'].close()
+            server['process'].kill()
 
         LOG.info('cluster killed')
 

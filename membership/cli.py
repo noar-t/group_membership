@@ -15,14 +15,16 @@ ARG_SETS = {
         (('-s', '--servers'),
          {'help': 'list of servers in the cluster', 'metavar': 'IP:ID',
           'nargs': '*'}),),
-    'COUNT': (
+    'CLUSTER': (
         (('-c', '--count'),
          {'help': 'number of servers in cluster', 'required': True,
-          'metavar': 'INT', 'type': int, 'action': 'store'}),),
+          'metavar': 'INT', 'type': int, 'action': 'store'}),
+        (('-d', '--debug'),
+         {'help': 'debug cluster without logggin', 'action': 'store_true'}),),
 }
 SUBCMDS = {
     'server': ('run server program', ('LOG', 'SERVER')),
-    'cluster': ('run cluster program', ('LOG', 'COUNT')),
+    'cluster': ('run cluster program', ('LOG', 'CLUSTER')),
 }
 
 
