@@ -43,9 +43,8 @@ class PeriodicBroadcastGroup(object):
         while True:
             LOG.info("test1")
             timeout = self.period - ((time.time() - self.cur_group) % self.period)
-            # timeout = self.period - time.time() - self.cur_group - self.cur_period * self.period
             LOG.info("waiting timeout %f", timeout)
-            msg = self.wait_for_message(timeout)
+            msg = self.atomic_b.wait_for_msg(timeout)
             LOG.info("after waiting")
             # if there were no messages, the period is over
             if msg is None:
@@ -66,19 +65,8 @@ class PeriodicBroadcastGroup(object):
 
     def msg_handler(self, msg):
         """ Handle receipt of broadcasts """
-        t = time.time()
-        rem_t = ((msg[0] - self.cur_group) - (self.period * self.cur_period))
-        # received a message in the form form (delivery time, msg)
-        # message not ready to be delivered but will be this period
-        if t < msg[0] and rem_t < self.period:
-            LOG.info("bla")
-            self.msg_handler(self.wait_for_message(rem_t))
-            # TODO make better abstraction
-            msg =  self.atomic_b.message_list.pop()
-
-        msg = struct.unpack(self.msg_fmt, msg[1])
+        msg = struct.unpack(self.msg_fmt, msg)
         # if on time; myclock > V abort
-        LOG.info("msg 1: %f\n%f", msg[1], time.time())
         if msg[1] < time.time():
             # if new-group
             if msg[0]:
@@ -93,10 +81,3 @@ class PeriodicBroadcastGroup(object):
                 LOG.info("member added %d", msg[3])
                 # put the member in the group
                 self.cur_members.append(msg[3])
-
-    def wait_for_message(self, timeout):
-        """ Gets messages blocking for a period """
-        # calculate time left in current period
-        return self.atomic_b.wait_for_message(timeout)
-
-

@@ -25,17 +25,10 @@ class AtomicBroadcaster(object):
         self.c_history = {}
         self.channels = [Channel(server_port, n + 1, self.msg_queue)
                          for n in range(channel_count)]
-        # LOG.info("hosts: %s", self.hosts)
-        # TODO this is not accurate, need to flushout calc_sigma
         self.sigma = 1
         self.message_list = MessageList()
         self.__forwarder = th.Thread(target=self.__forwarder_worker)
         self.__forwarder.start()
-
-        # XXX
-        # if server_port == 50000:
-            # time.sleep(2)
-            # self.broadcast(b'hi')
 
     def __add_to_c_history(self, msg):
         """
@@ -111,17 +104,6 @@ class AtomicBroadcaster(object):
 
         self.c_hist_lock.release()
 
-    def calc_sigma(self):
-        """ Find average ping to all hosts """
-        # TODO we can use popen to invoke ping but that may be poor style
-        pass
-
-    def get_messages(self):
-        return self.message_list.get_messages()
-
-    def wait_for_message(self, timeout):
-        return self.message_list.wait_for_msg(timeout)
-
     def broadcast(self, msg_data):
         """Send message on all channels"""
         msg = Message(None, msg_data, None)
@@ -132,6 +114,10 @@ class AtomicBroadcaster(object):
                 if host.id == self.server_id:
                     continue
                 channel.send(host.ip, host.port, msg)
+
+    def wait_for_msg(self, timeout):
+        """ Block until timout or a message arrives """
+        return self.message_list.get_message(timeout, True)
 
     def configure(self, config):
         self.config = config
@@ -168,69 +154,23 @@ class AtomicBroadcaster(object):
 
 
 class MessageList(object):
-    # intermal format should be (time to accept message, message)
-    # output list should just be message objects
+    """ Message queue to deliver messages at the correct time """
 
     def __init__(self):
-        self.messages = list()
-        self.lock = th.Lock()
-        self.sema = th.Semaphore(value=0)
+        self.messages = mp.Queue()
 
-    def get_messages(self):
-        t = time.time()
-        out = list()
-        last_index = 0
-        self.lock.acquire()
-        t = time.time()
-        for i, message in enumerate(self.messages):
-            # if message is ready to be received
-            if message[0] > t:
-                out.append(message[1])
-                last_index = i+1
-            else:
-                break
-        self.messages = self.messages[last_index:]
-        self.lock.release()
-        return out
-
-    def pop(self):
-        self.lock.aqcuire()
-        ret = self.messages[0]
-        self.messages.remove(ret)
-        self.lock.release()
-        return ret
-
-    def add_message(self, accept_time, new_message):
-        self.lock.acquire()
-        if len(self.messages) == 0:
-            self.messages.append((accept_time, new_message))
-            self.sema.release()
-            self.lock.release()
-            return
-        for i, message in enumerate(self.messages):
-            if accept_time < message[0]:
-                self.messages.insert(i, (accept_time, new_message))
-                # TODO experiemental
-                if i == 0:
-                    LOG.debug("UPPPP")
-                    self.sema.release() # signal that there is a new first item
-        self.lock.release()
-
-    def wait_for_msg(self, timeout):
-        LOG.info("waiting on sema")
-        if self.sema.acquire(True, timeout):
-            LOG.info("acq on sema")
-            return self.peek()
-        else:
-            LOG.info("not acq on sema")
+    def get_message(self, timeout, blocking=False):
+        try:
+            return self.messages.get(blocking, timeout)
+        except Exception: # should be queue.Empty but not sure namespace
             return None
 
+    def add_message(self, accept_time, msg):
+        """ Put a message in the queue at accept_time """
+        th.Thread(target=self.__add_message, args=(accept_time, msg)).start()
 
-    def peek(self):
-        """ Gives the first item of the MessageList """
-        ret = None
-        self.lock.acquire()
-        if len(self.messages) > 0:
-            ret = self.messages[0]
-        self.lock.release()
-        return ret
+    def __add_message(self, accept_time, msg):
+        """ Helper for add message, waits until accept time and enqueues msg """
+        wait_t = accept_time - time.time()
+        time.sleep(wait_t)
+        self.messages.put(msg)
