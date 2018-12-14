@@ -23,6 +23,7 @@ class Server(object):
         self.port = 50000 + 100 * args.id
         self.servers = {}
         LOG.debug("starting server %i with port %i", args.id, self.port)
+        LOG.debug("starting server with args %s", args)
 
         for server in args.servers:
             split = server.split(':')
@@ -35,10 +36,16 @@ class Server(object):
         self.broadcaster = AtomicBroadcaster(args.id, self.port,
                                              self.servers, 8)
 
-        self.periodic_group = PeriodicBroadcastGroup(self.broadcaster,
-                                                     self.servers[args.id])
-        # self.attendance = AttendanceListGroup(self.broadcaster,
-                                                     # self.servers[args.id])
+        # check if we running an membership protocol
+        if args.protocol == 'periodic':
+            self.periodic_group = PeriodicBroadcastGroup(self.broadcaster,
+                                                         self.servers[args.id])
+        elif args.protocol == 'list':
+            self.attendance = AttendanceListGroup(self.broadcaster,
+                                                  self.servers[args.id])
+        elif args.protocol == 'neighbor':
+            pass
+
         self.commands = {
             'bc': self.__test_broadcast,
             'config': self.__configure_channels,

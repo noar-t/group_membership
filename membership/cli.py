@@ -21,10 +21,14 @@ ARG_SETS = {
           'metavar': 'INT', 'type': int, 'action': 'store'}),
         (('-d', '--debug'),
          {'help': 'debug cluster without logggin', 'action': 'store_true'}),),
+    'PROTOCOL': (
+        (('-p', '--protocol'),
+         {'help': 'group membership protocol', 'action': 'store',
+         'type': str}),),
 }
 SUBCMDS = {
-    'server': ('run server program', ('LOG', 'SERVER')),
-    'cluster': ('run cluster program', ('LOG', 'CLUSTER')),
+    'server': ('run server program', ('LOG', 'SERVER', 'PROTOCOL')),
+    'cluster': ('run cluster program', ('LOG', 'CLUSTER', 'PROTOCOL')),
 }
 
 

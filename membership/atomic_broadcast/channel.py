@@ -51,8 +51,9 @@ class Channel(object):
             addr = (addr[0], 100 * (addr[1] // 100))
             msg = Message.from_binary_msg(binary_msg)
             msg.addr = addr
-            LOG.debug("received m(%f, %i, m, %i) from: %s on c%i", msg.time,
-                    msg.host, msg.hops, addr, msg.chan)
+            LOG.debug("%i received m(%f, %i, m, %i) from: %s on c%i",
+                      self.server_port, msg.time, msg.host, msg.hops,
+                      addr, msg.chan)
             self.msg_queue.put(msg)
 
 

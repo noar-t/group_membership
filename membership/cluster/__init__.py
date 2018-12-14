@@ -33,6 +33,14 @@ class Cluster(object):
         # args += [ip + ':' + str(id) for id in self.servers]
         args += [ip + ':' + str(id) for id in range(self.args.count)]
 
+        # LOG.debug("protocol: %s", self.args.protocol)
+        if self.args.protocol == 'periodic':
+            args += ['-p', self.args.protocol]
+        elif self.args.protocol == 'neighbor':
+            args += ['-p', self.args.protocol]
+        elif self.args.protocol == 'list':
+            args += ['-p', self.args.protocol]
+
         if self.args.verbose:
             args.append('-v')
 
