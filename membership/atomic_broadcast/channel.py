@@ -118,3 +118,6 @@ class Message(object):
 
     def get_timely_deadline(self, sigma):
         return self.time + self.hops * sigma
+
+    def __str__(self):
+        return "({!s}, {!s}, m, {!s})".format(self.time, self.host, self.hops)

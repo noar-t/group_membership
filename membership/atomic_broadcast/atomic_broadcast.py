@@ -51,6 +51,10 @@ class AtomicBroadcaster(object):
         while True:
             msg = self.msg_queue.get()
             #LOG.info("forward_worker msg hops:%i", msg.hops)
+            # if the msg came from outself, don't forward and don't add to
+            # msglist
+            if msg.host == self.server_id:
+                continue
             if msg.hops == -1:
                 self.message_list.add_message(0, msg)
                 continue
@@ -61,6 +65,7 @@ class AtomicBroadcaster(object):
                         delivery_time = msg.get_delivery_time(
                                 self.channel_count // 2,
                                 self.sigma)
+                        LOG.debug("adding msg at %i", self.server_id)
                         self.message_list.add_message(delivery_time, msg)
                         self.__schedule_forward_task(msg)
             #    else:
@@ -168,7 +173,7 @@ class MessageList(object):
 
     def add_message(self, accept_time, msg):
         """ Put a message in the queue at accept_time """
-        LOG.info("message added for time %i", accept_time)
+        LOG.info("m%s added for time %i", msg, accept_time)
         th.Thread(target=self.__add_message, args=(accept_time, msg)).start()
 
     def __add_message(self, accept_time, msg):
