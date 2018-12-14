@@ -50,6 +50,7 @@ class AtomicBroadcaster(object):
     def __forwarder_worker(self):
         while True:
             msg = self.msg_queue.get()
+            LOG.info("forward_worker msg hops:%i", msg.hops)
             if msg.hops == -1:
                 self.message_list.add_message(0, msg)
                 continue
@@ -167,6 +168,7 @@ class MessageList(object):
 
     def add_message(self, accept_time, msg):
         """ Put a message in the queue at accept_time """
+        LOG.info("message added for time %i", accept_time)
         th.Thread(target=self.__add_message, args=(accept_time, msg)).start()
 
     def __add_message(self, accept_time, msg):
