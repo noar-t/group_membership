@@ -50,7 +50,7 @@ class AtomicBroadcaster(object):
     def __forwarder_worker(self):
         while True:
             msg = self.msg_queue.get()
-            LOG.info("forward_worker msg hops:%i", msg.hops)
+            #LOG.info("forward_worker msg hops:%i", msg.hops)
             if msg.hops == -1:
                 self.message_list.add_message(0, msg)
                 continue
@@ -63,10 +63,10 @@ class AtomicBroadcaster(object):
                                 self.sigma)
                         self.message_list.add_message(delivery_time, msg)
                         self.__schedule_forward_task(msg)
-                else:
-                    LOG.debug('not timely')
-            else:
-                LOG.debug('is late')
+            #    else:
+            #        LOG.debug('not timely')
+            #else:
+            #    LOG.debug('is late')
                 # k = self.channel_count // 2
                 # LOG.debug("is_late: %f < (%f + (%i + 1) * %i)",
                 # msg.recv_time, msg.time, k, self.sigma)
