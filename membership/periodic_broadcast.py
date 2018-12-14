@@ -15,9 +15,8 @@ class PeriodicBroadcastGroup(object):
 
         self.cur_group = None
         self.cur_period = 0
-        self.host = host #TODO ip?
+        self.host = host
         self.period = period
-        # self.atomic_b = AtomicBroadcaster(10, ['TODO'], 10)
         self.atomic_b = broadcaster
 
         LOG.info("test2")
@@ -59,6 +58,11 @@ class PeriodicBroadcastGroup(object):
 
     def send_broadcast(self, new_group=False):
         """ Broadcast a message to all hosts """
+        if new_group:
+            LOG.debug("Host:%i, Sending new_group:%f", self.host.id, self.cur_group)
+        else:
+            LOG.debug("Host:%i, Sending present gid:%f", self.host.id, self.cur_group)
+
         msg = struct.pack(self.msg_fmt, new_group, \
                           self.cur_group, self.host.id)
         self.atomic_b.broadcast(msg)
