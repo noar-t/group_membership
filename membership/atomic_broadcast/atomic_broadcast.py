@@ -26,6 +26,7 @@ class AtomicBroadcaster(object):
         self.channels = [Channel(server_port, n + 1, self.msg_queue)
                          for n in range(channel_count)]
         self.sigma = 1
+        self.delivery_delay = ((self.channel_count // 2) + 1) * self.sigma
         self.message_list = MessageList()
         self.__forwarder = th.Thread(target=self.__forwarder_worker)
         self.__forwarder.start()

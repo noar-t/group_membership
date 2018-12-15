@@ -34,7 +34,7 @@ class Server(object):
         # LOG.debug("server list %s", self.servers)
 
         self.broadcaster = AtomicBroadcaster(args.id, self.port,
-                                             self.servers, 8)
+                                             self.servers, 1)
 
         # check if we running an membership protocol
         if args.protocol == 'periodic':

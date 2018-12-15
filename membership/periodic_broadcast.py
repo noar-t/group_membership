@@ -1,13 +1,12 @@
 import struct
 import time
-import os
 import threading as th
-from membership.atomic_broadcast.atomic_broadcast import AtomicBroadcaster
 from membership import LOG
+
 
 class PeriodicBroadcastGroup(object):
 
-    msg_fmt = '?di' # new-group(t/f), groupid, id
+    msg_fmt = '?di'  # new-group(t/f), groupid, id
 
     def __init__(self, broadcaster, host, period=5):
         self.past_members = list()
@@ -19,22 +18,18 @@ class PeriodicBroadcastGroup(object):
         self.period = period
         self.atomic_b = broadcaster
 
-        LOG.info("test2")
         self.__b_thread = th.Thread(target=self.__broadcast_worker)
-        LOG.info("test3")
         self.__b_thread.start()
-        LOG.info("test5")
 
     def get_members(self):
         """ Returns a list of the most recent members of the group """
         return self.past_members
 
-
     def __broadcast_worker(self):
         """ Broadcasts present every period time units """
         # group should be V + pi because of reconfiguration latency
         # create new group upon initialization
-        self.cur_group = time.time() + self.atomic_b.sigma
+        self.cur_group = time.time() + self.atomic_b.delivery_delay
         self.send_broadcast(new_group=True)
         self.send_broadcast()
 
@@ -62,7 +57,7 @@ class PeriodicBroadcastGroup(object):
         else:
             LOG.debug("Host:%i, Sending present gid:%f", self.host.id, self.cur_group)
 
-        msg = struct.pack(self.msg_fmt, new_group, \
+        msg = struct.pack(self.msg_fmt, new_group,
                           self.cur_group, self.host.id)
         self.atomic_b.broadcast(msg)
 
