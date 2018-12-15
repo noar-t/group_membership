@@ -51,7 +51,7 @@ class AtomicBroadcaster(object):
     def __forwarder_worker(self):
         while True:
             msg = self.msg_queue.get()
-            #LOG.info("forward_worker msg hops:%i", msg.hops)
+            # LOG.info("forward_worker msg hops:%i", msg.hops)
             # if the msg came from outself, don't forward and don't add to
             # msglist
             if msg.host == self.server_id:
@@ -64,20 +64,19 @@ class AtomicBroadcaster(object):
                     if self.__add_to_c_history(msg):
                         # schedule forwarding task
                         delivery_time = msg.get_delivery_time(
-                                self.channel_count // 2,
-                                self.sigma)
+                            self.channel_count // 2,
+                            self.sigma)
                         LOG.debug("adding msg at %i", self.server_id)
                         self.message_list.add_message(delivery_time, msg)
                         self.__schedule_forward_task(msg)
             #    else:
             #        LOG.debug('not timely')
-            #else:
+            # else:
             #    LOG.debug('is late')
                 # k = self.channel_count // 2
                 # LOG.debug("is_late: %f < (%f + (%i + 1) * %i)",
                 # msg.recv_time, msg.time, k, self.sigma)
                 # LOG.debug("\n%f\n%f", msg.recv_time, msg.time + (k+1)*self.sigma)
-
 
     def __schedule_forward_task(self, msg):
         # LOG.debug("scheduling forwarding task")
@@ -169,7 +168,7 @@ class MessageList(object):
     def get_message(self, timeout, blocking=False):
         try:
             return self.messages.get(blocking, timeout)
-        except Exception: # should be queue.Empty but not sure namespace
+        except Exception:  # should be queue.Empty but not sure namespace
             return None
 
     def add_message(self, accept_time, msg):
