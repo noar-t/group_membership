@@ -1,4 +1,3 @@
-import threading as th
 import sys
 import logging
 from membership import LOG, cli, cluster
@@ -52,8 +51,7 @@ OPTIONS = {
 
 
 def run_server(args):
-    s = server.Server(args)
-    # server_thread = s.start()
+    server.Server(args)
 
 
 def run_cluster(args):

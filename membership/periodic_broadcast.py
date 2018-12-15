@@ -45,10 +45,10 @@ class PeriodicBroadcastGroup(object):
                 self.past_members = self.cur_members
                 self.cur_members = set([self.host.id])
                 self.cur_period += 1
+                self.send_broadcast()
             else:
                 LOG.info("in else")
                 self.msg_handler(msg)
-            self.send_broadcast()
 
     def send_broadcast(self, new_group=False):
         """ Broadcast a message to all hosts """

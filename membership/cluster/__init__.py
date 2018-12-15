@@ -67,7 +67,6 @@ class Cluster(object):
         self.servers[id]['process'].stdin.flush()
         return True
 
-
     def remove(self, id):
         """
         removes server id from the cluster
