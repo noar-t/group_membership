@@ -9,8 +9,8 @@ class PeriodicBroadcastGroup(object):
     msg_fmt = '?di'  # new-group(t/f), groupid, id
 
     def __init__(self, broadcaster, host, period=5):
-        self.past_members = list()
-        self.cur_members = list()
+        self.past_members = set()
+        self.cur_members = set()
 
         self.cur_group = None
         self.cur_period = 0
@@ -43,7 +43,7 @@ class PeriodicBroadcastGroup(object):
             if msg is None:
                 LOG.info("\033[95 mmembers at end of period %s\033[0m", self.get_members())
                 self.past_members = self.cur_members
-                self.cur_members = [self.host.id]
+                self.cur_members = set([self.host.id])
                 self.cur_period += 1
             else:
                 LOG.info("in else")
@@ -71,11 +71,11 @@ class PeriodicBroadcastGroup(object):
                 LOG.info("new group requested")
                 self.cur_group = msg[1]
                 self.cur_period = 0
-                self.cur_members = [self.host.id]
-                self.past_members = list()
+                self.cur_members = set([self.host.id])
+                self.past_members = set()
 
             # present broadcast
             else:
                 LOG.info("member added %d", msg[2])
                 # put the member in the group
-                self.cur_members.append(msg[2])
+                self.cur_members.add(msg[2])
