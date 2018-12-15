@@ -36,9 +36,8 @@ class PeriodicBroadcastGroup(object):
         # Processs messages and broadcast present
         while True:
             timeout = self.period - ((time.time() - self.cur_group) % self.period)
-            LOG.info("waiting timeout %f", timeout)
+            # LOG.info("waiting timeout %f", timeout)
             msg = self.atomic_b.wait_for_msg(timeout)
-            LOG.info("after waiting")
             # if there were no messages, the period is over
             if msg is None:
                 LOG.info("\033[95 mmembers at end of period %s\033[0m", self.get_members())
@@ -47,7 +46,6 @@ class PeriodicBroadcastGroup(object):
                 self.cur_period += 1
                 self.send_broadcast()
             else:
-                LOG.info("in else")
                 self.msg_handler(msg)
 
     def send_broadcast(self, new_group=False):

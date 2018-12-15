@@ -30,6 +30,7 @@ class Server(object):
             id = int(split[1])
             ip = split[0]
             self.servers[id] = Host(id, ip)
+        self.servers[args.id] = Host(args.id, split[0])
 
         # LOG.debug("server list %s", self.servers)
 
