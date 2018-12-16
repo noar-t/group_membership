@@ -31,10 +31,11 @@ class Cluster(object):
         # TODO clean up
         args = ['python3', '-m', 'membership', 'server', '-s']
         # args += [ip + ':' + str(id) for id in self.servers]
-        if init:
-            args += [ip + ':' + str(id) for id in range(self.args.count)]
-        else:
-            args += [ip + ':' + str(id) for id in self.servers]
+        # if init:
+            # args += [ip + ':' + str(id) for id in range(self.args.count)]
+        args += [ip + ':' + str(id) for id in range(10)]
+        # else:
+            # args += [ip + ':' + str(id) for id in self.servers]
 
         # LOG.debug("protocol: %s", self.args.protocol)
         if self.args.protocol == 'periodic':

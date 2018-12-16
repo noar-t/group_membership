@@ -82,7 +82,6 @@ class AtomicBroadcaster(object):
         # LOG.debug("scheduling forwarding task")
         forward_task = functools.partial(self.__forward_task, msg=msg)
         task_thread = th.Thread(target=forward_task)
-        task_thread.daemon = True
         task_thread.start()
 
     def __forward_task(self, msg):

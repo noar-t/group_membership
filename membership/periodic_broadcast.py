@@ -8,7 +8,7 @@ class PeriodicBroadcastGroup(object):
 
     msg_fmt = '?di'  # new-group(t/f), groupid, id
 
-    def __init__(self, broadcaster, host, period=5):
+    def __init__(self, broadcaster, host, period=10):
         self.past_members = set()
         self.cur_members = set()
 
@@ -17,6 +17,7 @@ class PeriodicBroadcastGroup(object):
         self.host = host
         self.period = period
         self.atomic_b = broadcaster
+        self.scheduled_broadcasts = {}
 
         self.__b_thread = th.Thread(target=self.__broadcast_worker)
         self.__b_thread.start()
@@ -32,21 +33,49 @@ class PeriodicBroadcastGroup(object):
         self.cur_group = time.time() + self.atomic_b.delivery_delay
         self.send_broadcast(new_group=True)
         self.send_broadcast()
+        # self.__broadcast_task(time.time())
+        self.__schedule_broadcast_task(time.time() + self.period)
 
         # Processs messages and broadcast present
         while True:
-            timeout = self.period - ((time.time() - self.cur_group) % self.period)
+            # timeout = self.period - ((time.time() - self.cur_group) % self.period)
             # LOG.info("waiting timeout %f", timeout)
-            msg = self.atomic_b.wait_for_msg(timeout)
+            msg = self.atomic_b.wait_for_msg(None)
             # if there were no messages, the period is over
-            if msg is None:
-                LOG.info("\033[95 mmembers at end of period %s\033[0m", self.get_members())
-                self.past_members = self.cur_members
-                self.cur_members = set([self.host.id])
-                self.cur_period += 1
-                self.send_broadcast()
-            else:
-                self.msg_handler(msg)
+            # if msg is None:
+                # LOG.info("\033[95 mmembers at end of period %s\033[0m", self.get_members())
+                # self.past_members = self.cur_members
+                # self.cur_members = set([self.host.id])
+                # self.cur_period += 1
+                # self.send_broadcast()
+            # else:
+                # self.msg_handler(msg)
+            self.msg_handler(msg)
+
+    def __schedule_broadcast_task(self, broadcast_time):
+        # broadcast_task = functools.partial(self.__broadcast_task, broadcast_time)
+        # task_thread = th.Thread(target=broadcast_task)
+        # self.scheduled_broadcasts[broadcast_time] = True
+        # task_thread.daemon = True
+        # task_thread.start()
+
+        broadcast_task = th.Timer(broadcast_time - time.time(),
+                                  self.__broadcast_task,
+                                  args=(broadcast_time,))
+        self.scheduled_broadcasts[broadcast_time] = broadcast_task
+        broadcast_task.start()
+
+    def __broadcast_task(self, broadcast_time):
+        # wait_duration = broadcast_time() - time.time()
+        # time.sleep(wait_duration)
+        # if self.scheduled_broadcasts[broadcast_time]:
+        LOG.info("\033[95 mmembers at end of period %s\033[0m", self.get_members())
+        self.past_members = self.cur_members
+        self.cur_members = set([self.host.id])
+        self.cur_period += 1
+        self.send_broadcast()
+        self.__schedule_broadcast_task(broadcast_time + self.period)
+        del self.scheduled_broadcasts[broadcast_time]
 
     def send_broadcast(self, new_group=False):
         """ Broadcast a message to all hosts """
@@ -71,6 +100,12 @@ class PeriodicBroadcastGroup(object):
                 self.cur_period = 0
                 self.cur_members = set([self.host.id])
                 self.past_members = set()
+
+                # cancel broadcasts
+                for key, task in self.scheduled_broadcasts.items():
+                    task.cancel()
+                self.scheduled_broadcasts = {}
+                self.__schedule_broadcast_task(msg[1] + self.period)
 
             # present broadcast
             else:
