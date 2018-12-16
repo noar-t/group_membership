@@ -135,10 +135,12 @@ class PeriodicBroadcastGroup(object):
             LOG.debug("confirming: UPDATING mems from %s to %s",
                       self.cur_members, self.check_members)
             self.cur_members = self.check_members
-            self.cur_group = self.cur_group + self.period
+            self.cur_group += self.period
             # reset
             self.check_members = set([self.host.id])
         else:
+            # XXX
+            self.cur_group += self.period
             LOG.debug("%i: confirming: OKAY mems at %s", self.host.id, self.cur_members)
             self.check_members = set([self.host.id])
 
@@ -147,7 +149,6 @@ class PeriodicBroadcastGroup(object):
         next_check_task = th.Timer(next_check_time - time.time() - 1,
                                    self.__membership_check_task,
                                    args=(next_check_time,))
-        # XXX
         self.scheduled_broadcasts[next_check_time] = next_check_task
         next_check_task.start()
 
