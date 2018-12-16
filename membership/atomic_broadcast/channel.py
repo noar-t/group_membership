@@ -37,8 +37,8 @@ class Channel(object):
         # msg.host = self.server_port
         dest_channel_port = port + self.channel_id
 
-        LOG.debug("sending M(%f, %s, m, %i)->c%i to %s:%i", msg.time,
-                  self.server_port, msg.hops, msg.chan, ip, port)
+        # LOG.debug("sending M(%f, %s, m, %i)->c%i to %s:%i", msg.time,
+                  # self.server_port, msg.hops, msg.chan, ip, port)
         self.socket.sendto(msg.marshal(), (ip, dest_channel_port))
 
     def __recv_worker(self):
@@ -51,9 +51,9 @@ class Channel(object):
             addr = (addr[0], 100 * (addr[1] // 100))
             msg = Message.from_binary_msg(binary_msg)
             msg.addr = addr
-            LOG.debug("%i received m(%f, %i, m, %i) from: %s on c%i",
-                      self.server_port, msg.time, msg.host, msg.hops,
-                      addr, msg.chan)
+            # LOG.debug("%i received m(%f, %i, m, %i) from: %s on c%i",
+                      # self.server_port, msg.time, msg.host, msg.hops,
+                      # addr, msg.chan)
             self.msg_queue.put(msg)
 
 

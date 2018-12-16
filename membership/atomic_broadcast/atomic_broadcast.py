@@ -25,7 +25,7 @@ class AtomicBroadcaster(object):
         self.c_history = {}
         self.channels = [Channel(server_port, n + 1, self.msg_queue)
                          for n in range(channel_count)]
-        self.sigma = 2
+        self.sigma = 1
         self.delivery_delay = ((self.channel_count // 2) + 1) * self.sigma
         self.message_list = MessageList()
         self.__forwarder = th.Thread(target=self.__forwarder_worker)
@@ -172,7 +172,7 @@ class MessageList(object):
 
     def add_message(self, accept_time, msg):
         """ Put a message in the queue at accept_time """
-        LOG.info("m%s added for time %i", msg, accept_time)
+        # LOG.info("m%s added for time %i", msg, accept_time)
         th.Thread(target=self.__add_message, args=(accept_time, msg)).start()
 
     def __add_message(self, accept_time, msg):
