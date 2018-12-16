@@ -2,8 +2,6 @@ import json
 import socket
 import selectors
 import types
-import pickle
-import time
 from membership import LOG
 from membership.atomic_broadcast.atomic_broadcast import AtomicBroadcaster
 from membership.server import cli

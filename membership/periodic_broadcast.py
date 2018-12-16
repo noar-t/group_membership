@@ -8,15 +8,16 @@ class PeriodicBroadcastGroup(object):
 
     msg_fmt = '?di'  # new-group(t/f), groupid, id
 
-    def __init__(self, broadcaster, host, period=10):
+    def __init__(self, broadcaster, host, period=4):
+        self.host = host
+        self.atomic_b = broadcaster
+        self.period = period
+
         self.past_members = set()
-        self.cur_members = set()
+        self.cur_members = set([self.host.id])
 
         self.cur_group = None
         self.cur_period = 0
-        self.host = host
-        self.period = period
-        self.atomic_b = broadcaster
         self.scheduled_broadcasts = {}
 
         self.__b_thread = th.Thread(target=self.__broadcast_worker)
@@ -69,7 +70,9 @@ class PeriodicBroadcastGroup(object):
         # wait_duration = broadcast_time() - time.time()
         # time.sleep(wait_duration)
         # if self.scheduled_broadcasts[broadcast_time]:
-        LOG.info("\033[95 mmembers at end of period %s\033[0m", self.get_members())
+        # LOG.info("\033[95 mmembers at end of period %s\033[0m", self.get_members())
+        LOG.info("\033[95 m%i: members arrived before period %s\033[0m",
+                 self.host.id, self.cur_members)
         self.past_members = self.cur_members
         self.cur_members = set([self.host.id])
         self.cur_period += 1
@@ -95,7 +98,7 @@ class PeriodicBroadcastGroup(object):
         if msg[1] < time.time():
             # if new-group
             if msg[0]:
-                LOG.info("new group requested")
+                LOG.info("%i: new group requested", self.host.id)
                 self.cur_group = msg[1]
                 self.cur_period = 0
                 self.cur_members = set([self.host.id])
@@ -109,6 +112,8 @@ class PeriodicBroadcastGroup(object):
 
             # present broadcast
             else:
-                LOG.info("member added %d", msg[2])
+                LOG.info("%i: member added %d", self.host.id, msg[2])
                 # put the member in the group
                 self.cur_members.add(msg[2])
+                LOG.info("%i: members after add %s", self.host.id,
+                         self.cur_members)
