@@ -13,6 +13,7 @@ class PeriodicBroadcastGroup(object):
         self.atomic_b = broadcaster
         self.period = period
 
+        self.delta = broadcaster.delivery_delay
         self.past_members = set()
         # self.cur_members = set([self.host.id])
         self.cur_members = set()
@@ -28,14 +29,14 @@ class PeriodicBroadcastGroup(object):
         time.sleep(2)
         if self.host.id == 0:
             # self.atomic_b.delivery_delay += 1
-            new_group_time = time.time() + self.atomic_b.delivery_delay
+            new_group_time = time.time() + self.delta
             self.cur_group = new_group_time
             self.send_broadcast(new_group_time, new_group=True)
             self.check_members.add(self.host.id)
 
             # scheulde a confirm for the new group. and then schedule a new check
             # for next period
-            confirm_time = new_group_time + 2 * self.atomic_b.delivery_delay
+            confirm_time = new_group_time + 2 * self.delta
             confirm_task = th.Timer(confirm_time - time.time(),
                                     self.__membership_confirmation_task,
                                     args=(new_group_time,))
@@ -153,7 +154,7 @@ class PeriodicBroadcastGroup(object):
 
     def __membership_check_task(self, check_time):
         self.send_broadcast(self.cur_group)
-        confirm_time = check_time + self.atomic_b.delivery_delay
+        confirm_time = check_time + self.delta
         confirm_task = th.Timer(confirm_time - time.time(),
                                 self.__membership_confirmation_task,
                                 args=(check_time,))
@@ -182,7 +183,7 @@ class PeriodicBroadcastGroup(object):
                 self.send_broadcast(msg[1])
 
                 # schedule check for the new group req
-                confirm_task = th.Timer(2*self.atomic_b.delivery_delay,
+                confirm_task = th.Timer(2*self.delta,
                                         self.__membership_confirmation_task,
                                         args=(msg[1],))
 
