@@ -1,7 +1,9 @@
 import struct
 import time
+import json
 import threading as th
 from membership import LOG
+from membership.atomic_broadcast.channel import Message
 
 
 class AttendanceListGroup(object):
@@ -19,7 +21,7 @@ class AttendanceListGroup(object):
         self.last_list = -1
         self.scheduled_tasks = list()
 
-        self.__r_thread = th.Thread(target=__recv_worker)
+        self.__r_thread = th.Thread(target=self.__recv_worker)
         self.__r_thread.start()
 
         time.sleep(1)
@@ -37,8 +39,9 @@ class AttendanceListGroup(object):
 
     def msg_handler(self, msg):
         """ Handle received message """
-        msg_size = struct.unpack('i', msg[0:4])
-        msg_dict = json.loads(msg[4:5+msg_size[0]])
+        msg_size = struct.unpack('i', msg.data[0:4])[0]
+        #LOG.debug("size: %i, json: %s", msg_size, msg.data[4:4+msg_size])
+        msg_dict = json.loads(msg.data[4:4+msg_size])
 
         # if "new-group" received
         if 'new_group' in msg_dict:
@@ -55,7 +58,7 @@ class AttendanceListGroup(object):
 
         elif 'present' in msg_dict:
             #TODO check correct group id
-            LOG.info("Member %i added to %d", msg_dict['id'], msg['gid'])
+            LOG.info("Member %i added to %d", msg_dict['id'], msg_dict['gid'])
             self.members.add(msg_dict['id'])
 
         elif 'list' in msg_dict:
@@ -70,6 +73,7 @@ class AttendanceListGroup(object):
                     'gid' : t }
         msg_bytes = json.dumps(msg_dict).encode()
         msg_size = struct.pack('i', len(msg_bytes))
+        LOG.debug("sending new_group: %i", t)
         self.atomic_b.broadcast(msg_size + msg_bytes)
 
     def send_present(self, t):
@@ -81,6 +85,7 @@ class AttendanceListGroup(object):
         self.atomic_b.broadcast(msg_size + msg_bytes)
 
     def send_list(self, members):
+        LOG.debug("host%i sending list %s", self.host.id, members)
         msg_dict = {'list' : True,
                     'gid' : self.cur_group,
                     'members' : members}
