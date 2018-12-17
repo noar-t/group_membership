@@ -1,5 +1,0 @@
-we can use unix sockets with TCP
-then we can use class slectors.BaseSelector select(timeout=None) 
-need to also allow for checking for atomic broadcast
-this allows for waiting for a list update or timeout
-upon receipt we need to immediately send a messageto the next member
