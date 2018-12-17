@@ -47,6 +47,7 @@ class Channel(object):
 
         while True:
             binary_msg, addr = self.socket.recvfrom(1044)
+            #LOG.debug("binary_msg%s", binary_msg[0:15])
             # calculate the port of the server rather than the channel
             addr = (addr[0], 100 * (addr[1] // 100))
             msg = Message.from_binary_msg(binary_msg)
@@ -96,6 +97,7 @@ class Message(object):
     def unmarshal(self, data):
         """ Turns a recieved message back into a message object """
         msg = struct.unpack('diii1024s', data)
+        #LOG.debug("unmarshal msg %s", msg[0:3])
         self.time = msg[0]
         self.hops = msg[1]
         self.host = msg[2]

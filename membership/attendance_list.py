@@ -1,4 +1,6 @@
 import struct
+import socket
+import random
 import time
 import json
 import threading as th
@@ -22,10 +24,10 @@ class AttendanceListGroup(object):
         self.scheduled_tasks = list()
         self.group = None
 
+        time.sleep(random.randrange(0, 10))
         self.__r_thread = th.Thread(target=self.__recv_worker)
         self.__r_thread.start()
 
-        time.sleep(1)
         new_group_time = time.time() + self.delta
         self.send_new_group(new_group_time)
 
@@ -35,14 +37,13 @@ class AttendanceListGroup(object):
         """ Work loop for worker """
         while True:
             msg = self.atomic_b.wait_for_msg(None)
-            LOG.debug("host%i recieved msg", self.host.id)
             self.msg_handler(msg)
 
     def msg_handler(self, msg):
         """ Handle received message """
         msg_size = struct.unpack('i', msg.data[0:4])[0]
-        #LOG.debug("size: %i, json: %s", msg_size, msg.data[4:4+msg_size])
         msg_dict = json.loads(msg.data[4:4+msg_size])
+        LOG.debug("host%i recieved msg: %s", self.host.id, msg_dict)
 
         # if "new-group" received
         if 'new_group' in msg_dict:
@@ -69,8 +70,11 @@ class AttendanceListGroup(object):
             #TODO check time < O and gamma
             LOG.info("list received")
             self.last_r_t = time.time() #TODO this is O not 0 needs to be fixed
-            if not host.id == max(self.members):
-                self.send_list(msg_dict['members'].add(self.host.id))
+            LOG.info("id%i, list%s", self.host.id, self.members)
+            LOG.info("if %s", not self.host.id == max(self.members))
+            LOG.info("comparison %i, vs %i", self.host.id, max(self.members))
+            if not self.host.id == max(self.members):
+                self.send_list(msg_dict['members'].append(self.host.id))
 
     def send_new_group(self, t):
         """ Sends a reconfigure request for the group consisting of the id """
@@ -79,7 +83,8 @@ class AttendanceListGroup(object):
                     'id' : self.host.id}
         msg_bytes = json.dumps(msg_dict).encode()
         msg_size = struct.pack('i', len(msg_bytes))
-        LOG.debug("sending new_group: %f", t)
+        LOG.debug("host%i sending new_group: %f", self.host.id, t)
+        LOG.debug("host%i sending new_group: %s", self.host.id, msg_bytes)
         self.atomic_b.broadcast(msg_size + msg_bytes)
 
     def send_present(self, t):
@@ -100,13 +105,15 @@ class AttendanceListGroup(object):
         dest = self.get_next_host()
         msg = Message(None, msg_size + msg_bytes, -1)
         msg.hops = -1
-        msg.time = time.time()
+        msg.time = 0
         msg.host = -1
         msg.chan = -1
         LOG.debug("host%i, sending list to host%i", self.host.id, dest)
+        LOG.debug("members: %s", self.members)
         port = 50000 + (100 * dest) + 1
         # send on the first channel, abuse the system
-        self.atomic_b.channels[0].socket.sendto(msg.marshal(), ('localhost', port))
+        self.atomic_b.channels[0].socket.sendto(msg.marshal(),
+                                                (socket.gethostbyname(socket.gethostname()), port))
 
     def get_next_host(self):
         next_host = None
