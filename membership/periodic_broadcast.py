@@ -15,7 +15,6 @@ class PeriodicBroadcastGroup(object):
 
         self.delta = broadcaster.delivery_delay
         self.past_members = set()
-        # self.cur_members = set([self.host.id])
         self.cur_members = set()
         self.check_members = set()
 
@@ -44,7 +43,7 @@ class PeriodicBroadcastGroup(object):
 
     def get_members(self):
         """ Returns a list of the most recent members of the group """
-        return self.past_members
+        return self.cur_members
 
     def __broadcast_worker(self):
         """ Broadcasts present every period time units """
@@ -74,46 +73,8 @@ class PeriodicBroadcastGroup(object):
 
         # Processs messages and broadcast present
         while True:
-            # timeout = self.period - ((time.time() - self.cur_group) % self.period)
-            # LOG.info("waiting timeout %f", timeout)
             msg = self.atomic_b.wait_for_msg(None)
-            # if there were no messages, the period is over
-            # if msg is None:
-                # LOG.info("\033[95 mmembers at end of period %s\033[0m", self.get_members())
-                # self.past_members = self.cur_members
-                # self.cur_members = set([self.host.id])
-                # self.cur_period += 1
-                # self.send_broadcast()
-            # else:
-                # self.msg_handler(msg)
             self.msg_handler(msg)
-
-    # def __schedule_broadcast_task(self, broadcast_time):
-        # # broadcast_task = functools.partial(self.__broadcast_task, broadcast_time)
-        # # task_thread = th.Thread(target=broadcast_task)
-        # # self.scheduled_broadcasts[broadcast_time] = True
-        # # task_thread.daemon = True
-        # # task_thread.start()
-
-        # broadcast_task = th.Timer(broadcast_time - time.time() - 3,
-                                  # self.__broadcast_task,
-                                  # args=(broadcast_time,))
-        # self.scheduled_broadcasts[broadcast_time] = broadcast_task
-        # broadcast_task.start()
-
-    # def __broadcast_task(self, broadcast_time):
-        # # wait_duration = broadcast_time() - time.time()
-        # # time.sleep(wait_duration)
-        # # if self.scheduled_broadcasts[broadcast_time]:
-        # # LOG.info("\033[95 mmembers at end of period %s\033[0m", self.get_members())
-        # LOG.info("\033[95 m%i: members arrived before period %s\033[0m",
-                 # self.host.id, self.cur_members)
-        # self.past_members = self.cur_members
-        # self.cur_members = set([self.host.id])
-        # self.cur_period += 1
-        # self.send_broadcast(broadcast_time)
-        # self.__schedule_broadcast_task(broadcast_time + self.period)
-        # del self.scheduled_broadcasts[broadcast_time]
 
     def send_broadcast(self, time, new_group=False):
         """ Broadcast a message to all hosts """
@@ -122,8 +83,6 @@ class PeriodicBroadcastGroup(object):
         else:
             LOG.debug("Host:%i, Sending present gid:%f", self.host.id, time)
 
-        # msg = struct.pack(self.msg_fmt, new_group,
-                          # self.cur_group, self.host.id)
         msg = struct.pack(self.msg_fmt, new_group,
                           time, self.host.id)
         self.atomic_b.broadcast(msg)
@@ -180,24 +139,19 @@ class PeriodicBroadcastGroup(object):
                 self.cur_period = 0
                 self.check_members = set([self.host.id, msg[2]])
                 self.past_members = set()
-                # self.broadcasts(msg[1] + self.atomic_b.delivery_delay)
                 self.send_broadcast(msg[1])
 
                 # schedule check for the new group req
-                confirm_task = th.Timer(2*self.delta,
+                confirm_task = th.Timer(2 * self.delta,
                                         self.__membership_confirmation_task,
                                         args=(msg[1],))
 
                 confirm_task.start()
 
-                # self.__schedule_broadcast_task(msg[1] +
-                        # self.atomic_b.delivery_delay)
-
             # if "present" received
             else:
                 LOG.info("%i: member added %d", self.host.id, msg[2])
                 # put the member in the group
-                # self.cur_members.add(msg[2])
                 self.check_members.add(msg[2])
                 # LOG.info("%i: members after add %s", self.host.id,
                          # self.check_members)
