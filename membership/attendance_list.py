@@ -80,7 +80,6 @@ class AttendanceListGroup(object):
             self.scheduled_tasks.append(confirm_task)
             confirm_task.start()
 
-
             # check_task = th.Timer(msg_dict['gid'] - time.time() + self.period,
                                   # self.__membership_check,
                                   # args=(msg_dict['gid'],))
@@ -96,7 +95,7 @@ class AttendanceListGroup(object):
         elif 'list' in msg_dict:
             #TODO check time < O and gamma
             LOG.info("%i: list received", self.host.id)
-            self.last_r_t = time.time() #TODO this is O not 0 needs to be fixed
+            self.last_r_t = time.time()  #TODO this is O not 0 needs to be fixed
             if not self.host.id == max(self.members):
                 self.send_list([self.host.id])
 
@@ -154,7 +153,6 @@ class AttendanceListGroup(object):
                                    # args=(next_check_time,))
         # self.scheduled_broadcasts[next_check_time] = next_check_task
         # next_check_task.start()
-
 
     def send_present(self, t):
         msg_dict = {'present': True,
