@@ -102,6 +102,10 @@ class PeriodicBroadcastGroup(object):
             self.cur_group += self.period
             LOG.debug("%i: confirming: OKAY mems at %s", self.host.id, self.cur_members)
             self.check_members = set([self.host.id])
+        for key, task in self.scheduled_broadcasts.items():
+            # if msg[0] <= key:
+            task.cancel()
+        self.scheduled_broadcasts = {}
 
         # schedule next check task; next check at check_time + period
         next_check_time = check_time + self.period
@@ -155,6 +159,7 @@ class PeriodicBroadcastGroup(object):
             else:
                 LOG.info("%i: member added %d", self.host.id, msg[2])
                 # put the member in the group
+                # if self.cur_group == msg[1]:
                 self.check_members.add(msg[2])
                 # LOG.info("%i: members after add %s", self.host.id,
                          # self.check_members)
