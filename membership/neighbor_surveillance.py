@@ -69,8 +69,7 @@ class NeighborSurveillanceGroup(object):
             self.group = msg_dict['gid']
             self.send_present(msg_dict['gid'])
             LOG.debug("timer for %f", msg_dict['gid'] - time.time() + self.period)
-            self.present_members.add(self.host.id)
-            self.present_members.add(msg_dict['id'])
+            self.present_members = set([self.host.id, msg_dict['id']])
             # confirm_time = new_group_time + 2 * self.delta
             wait_t = msg_dict['gid'] + 2 * self.delta - time.time()
             confirm_task = th.Timer(wait_t,
