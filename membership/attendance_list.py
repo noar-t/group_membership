@@ -15,7 +15,7 @@ class AttendanceListGroup(object):
 
         self.members = set()
         self.delta = broadcaster.delivery_delay
-        self.sigma = 1 #TODO change
+        self.sigma = 1  #TODO change
 
         # time for last list receipt
         self.last_r_t = -1
@@ -29,8 +29,6 @@ class AttendanceListGroup(object):
         new_group_time = time.time() + self.delta
         self.send_new_group(new_group_time)
 
-
-
     def __recv_worker(self):
         """ Work loop for worker """
         while True:
@@ -42,7 +40,7 @@ class AttendanceListGroup(object):
         """ Handle received message """
         msg_size = struct.unpack('i', msg.data[0:4])[0]
         #LOG.debug("size: %i, json: %s", msg_size, msg.data[4:4+msg_size])
-        msg_dict = json.loads(msg.data[4:4+msg_size])
+        msg_dict = json.loads(msg.data[4:4 + msg_size])
 
         # if "new-group" received
         if 'new_group' in msg_dict:
@@ -68,33 +66,33 @@ class AttendanceListGroup(object):
         elif 'list' in msg_dict:
             #TODO check time < O and gamma
             LOG.info("list received")
-            self.last_r_t = time.time() #TODO this is O not 0 needs to be fixed
-            if not host.id == max(self.members):
+            self.last_r_t = time.time()  #TODO this is O not 0 needs to be fixed
+            if not self.host.id == max(self.members):
                 self.send_list(msg_dict['members'].add(self.host.id))
 
     def send_new_group(self, t):
         """ Sends a reconfigure request for the group consisting of the id """
-        msg_dict = {'new_group' : True,
-                    'gid' : t ,
-                    'id' : self.host.id}
+        msg_dict = {'new_group': True,
+                    'gid': t,
+                    'id': self.host.id}
         msg_bytes = json.dumps(msg_dict).encode()
         msg_size = struct.pack('i', len(msg_bytes))
         LOG.debug("sending new_group: %f", t)
         self.atomic_b.broadcast(msg_size + msg_bytes)
 
     def send_present(self, t):
-        msg_dict = {'present' : True,
-                    'gid' : t,
-                    'id' : self.host.id }
+        msg_dict = {'present': True,
+                    'gid': t,
+                    'id': self.host.id}
         msg_bytes = json.dumps(msg_dict).encode()
         msg_size = struct.pack('i', len(msg_bytes))
         self.atomic_b.broadcast(msg_size + msg_bytes)
 
     def send_list(self, members):
         LOG.debug("host%i sending list %s", self.host.id, members)
-        msg_dict = {'list' : True,
-                    'gid' : self.group,
-                    'members' : list(members)}
+        msg_dict = {'list': True,
+                    'gid': self.group,
+                    'members': list(members)}
         msg_bytes = json.dumps(msg_dict).encode()
         msg_size = struct.pack('i', len(msg_bytes))
         dest = self.get_next_host()
@@ -113,32 +111,29 @@ class AttendanceListGroup(object):
         for m in sorted(self.members):
             if m == self.host.id:
                 next_host = True
-            elif not next_host is None:
+            elif next_host is not None:
                 next_host = m
                 break
         return next_host
 
-
     def get_members(self):
         """ Returns a list of the most recent members of the group """
         return self.members
-
 
     def __membership_confirmation(self, check_time):
         #TODO this is probably broken sends in delta check time instead of abs check time
         LOG.debug("host%i membership confirm tast", self.host.id)
         #if time.time() > check_time:
         #    return
-        if self.last_r_t + len(self.members)*self.sigma < check_time:
+        if self.last_r_t + len(self.members) * self.sigma < check_time:
             self.send_new_group(time.time())
-
 
     def __membership_check(self, check_time):
         LOG.debug("host%i membership check task", self.host.id)
         self.members.add(self.host.id)
         if self.host.id == max(self.members):
             self.send_list([self.host.id])
-        gamma = len(self.members)*self.sigma
+        gamma = len(self.members) * self.sigma
         confirm_time = check_time - time.time() + gamma
         confirm_task = th.Timer(confirm_time,
                                 self.__membership_confirmation,
@@ -148,7 +143,7 @@ class AttendanceListGroup(object):
 
         mem_check_time = check_time - time.time() + self.period
         mem_check_task = th.Timer(mem_check_time,
-                                self.__membership_check,
-                                args=(check_time + self.period,))
+                                  self.__membership_check,
+                                  args=(check_time + self.period,))
         self.scheduled_tasks.append(mem_check_task)
         mem_check_task.start()
