@@ -42,7 +42,8 @@ class Server(object):
                                                          args.join)
         elif args.protocol == 'list':
             self.attendance = AttendanceListGroup(self.broadcaster,
-                                                  self.servers[args.id])
+                                                  self.servers[args.id],
+                                                  args.join)
         elif args.protocol == 'neighbor':
             pass
 
