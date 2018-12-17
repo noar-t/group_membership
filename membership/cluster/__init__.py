@@ -34,7 +34,7 @@ class Cluster(object):
         # args += [ip + ':' + str(id) for id in self.servers]
         # if init:
             # args += [ip + ':' + str(id) for id in range(self.args.count)]
-        args += [ip + ':' + str(i) for i in range(3)]
+        args += [ip + ':' + str(i) for i in range(10)]
 
         if init and id == 0:
             args += ['-j']
