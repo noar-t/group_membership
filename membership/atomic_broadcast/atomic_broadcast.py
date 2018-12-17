@@ -183,5 +183,6 @@ class MessageList(object):
     def __add_message(self, accept_time, msg):
         """ Helper for add message, waits until accept time and enqueues msg """
         wait_t = accept_time - time.time()
-        time.sleep(wait_t)
+        if wait_t > 0:
+            time.sleep(wait_t)
         self.messages.put(msg)
