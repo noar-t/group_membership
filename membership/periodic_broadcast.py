@@ -126,8 +126,9 @@ class PeriodicBroadcastGroup(object):
         msg = struct.unpack(self.msg_fmt, msg.data[:20])
         # if on time; myclock > V abort
         # if msg[1] < time.time():
-        # if msg[1] > time.time():
+        # if msg[1] > (time.time() - .2):
         if True:
+            # LOG.debug("TIME, MYCLOCK: %s, %s", msg[1], time.time() - .2)
             # if "new-group" received
             if msg[0]:
                 # cancel broadcasts
