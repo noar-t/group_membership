@@ -4,6 +4,7 @@ from membership.atomic_broadcast.atomic_broadcast import AtomicBroadcaster
 from membership.server import cli
 from membership.periodic_broadcast import PeriodicBroadcastGroup
 from membership.attendance_list import AttendanceListGroup
+from membership.neighbor_surveillance import NeighborSurveillanceGroup
 
 
 class Host(object):
@@ -42,7 +43,9 @@ class Server(object):
                                                   self.servers[args.id],
                                                   args.join)
         elif args.protocol == 'neighbor':
-            pass
+            self.attendance = NeighborSurveillanceGroup(self.broadcaster,
+                                                        self.servers[args.id],
+                                                        args.join)
 
         self.commands = {
             'bc': self.__test_broadcast,

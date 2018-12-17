@@ -200,7 +200,8 @@ class AttendanceListGroup(object):
 
     def __membership_confirmation(self, check_time):
         #TODO this is probably broken sends in delta check time instead of abs check time
-        LOG.debug("host%i: membership confirm task", self.host.id)
+        LOG.debug("host%i: membership confirm task %f", self.host.id,
+                check_time)
         #time.time() > check_time:
         #    return
         if self.last_r_t + len(self.members) * self.sigma + .1 < check_time:
@@ -219,12 +220,12 @@ class AttendanceListGroup(object):
             confirm_task.start()
 
     def __membership_check(self, check_time):
-        LOG.debug("host%i membership check task", self.host.id)
+        LOG.debug("host%i membership check task %f", self.host.id, check_time)
         # self.members.add(self.host.id)
         if self.host.id == max(self.members):
             self.send_list([self.host.id])
         gamma = len(self.members) * self.sigma
-        confirm_time = check_time - time.time() + gamma + .1
+        confirm_time = check_time - time.time() + gamma
         confirm_task = th.Timer(confirm_time,
                                 self.__membership_confirmation,
                                 args=(check_time + gamma,))

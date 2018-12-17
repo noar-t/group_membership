@@ -1,162 +1,239 @@
 import struct
+import socket
 import time
+import json
 import threading as th
 from membership import LOG
+from membership.atomic_broadcast.channel import Message
 
 
 class NeighborSurveillanceGroup(object):
-
-    msg_fmt = '?di'  # new-group(t/f), groupid, id
 
     def __init__(self, broadcaster, host, join, period=10):
         self.host = host
         self.atomic_b = broadcaster
         self.period = period
 
+        self.members = set()
+        self.present_members = set()
         self.delta = broadcaster.delivery_delay
-        self.cur_members = set()
-        self.check_members = set()
+        self.sigma = 1  #TODO change
+        # self.scheduled_broadcasts = {}
 
-        self.cur_group = None
-        self.cur_period = 0
-        self.scheduled_broadcasts = {}
+        # time for last list receipt
+        self.last_r_t = -1
+        self.scheduled_tasks = list()
+        self.group = None
 
-        self.__b_thread = th.Thread(target=self.__broadcast_worker)
-        self.__b_thread.start()
+        self.__r_thread = th.Thread(target=self.__recv_worker)
+        self.__r_thread.start()
 
         time.sleep(2)
         if join:
-            # self.atomic_b.delivery_delay += 1
             new_group_time = time.time() + self.delta
             self.cur_group = new_group_time
-            self.send_broadcast(new_group_time, new_group=True)
-            self.check_members.add(self.host.id)
+            # self.send_broadcast(new_group_time, new_group=True)
+            self.send_new_group(new_group_time)
+            self.present_members.add(self.host.id)
 
-            # scheulde a confirm for the new group. and then schedule a new check
-            # for next period
             confirm_time = new_group_time + 2 * self.delta
             confirm_task = th.Timer(confirm_time - time.time(),
-                                    self.__membership_confirmation_task,
+                                    self.__new_group_confirmation,
                                     args=(new_group_time,))
-            self.scheduled_broadcasts[confirm_time] = confirm_task
+            # self.scheduled_broadcasts[confirm_time] = confirm_task
+            self.scheduled_tasks.append(confirm_task)
             confirm_task.start()
 
-    def get_members(self):
-        """ Returns a list of the most recent members of the group """
-        return self.cur_members
-
-    def __broadcast_worker(self):
-        """ Broadcasts present every period time units """
-        # group should be V + pi because of reconfiguration latency
-        # create new group upon initialization
-        # self.atomic_b.delivery_delay += 1
-        # new_group_time = time.time() + self.atomic_b.delivery_delay
-        # self.cur_group = new_group_time
-        # self.send_broadcast(new_group_time, new_group=True)
-        # self.check_members.add(self.host.id)
-
-        # # scheulde a confirm for the new group. and then schedule a new check
-        # # for next period
-        # confirm_task = th.Timer(self.atomic_b.delivery_delay,
-                                # self.__membership_confirmation_task,
-                                # args=(new_group_time,))
-        # confirm_task.start()
-
-
-
-
-        # check_time = new_group_time + self.period
-        # check_task = th.Timer(check_time, self.__membership_check_task,
-                              # args=(check_time,))
-        # self.scheduled_broadcasts[check_time] = check_task
-        # check_task.start()
-
-        # Processs messages and broadcast present
+    def __recv_worker(self):
+        """ Work loop for worker """
         while True:
             msg = self.atomic_b.wait_for_msg(None)
             self.msg_handler(msg)
 
-    def send_broadcast(self, time, new_group=False):
-        """ Broadcast a message to all hosts """
-        if new_group:
-            LOG.debug("Host:%i, Sending new_group:%f", self.host.id, time)
-        else:
-            LOG.debug("Host:%i, Sending present gid:%f", self.host.id, time)
+    def msg_handler(self, msg):
+        """ Handle received message """
+        msg_size = struct.unpack('i', msg.data[0:4])[0]
+        #LOG.debug("size: %i, json: %s", msg_size, msg.data[4:4+msg_size])
+        # LOG.debug("host%i recieved msg: %s", self.host.id, msg_dict)
+        msg_dict = json.loads(msg.data[4:4 + msg_size].decode())
 
-        msg = struct.pack(self.msg_fmt, new_group,
-                          time, self.host.id)
-        self.atomic_b.broadcast(msg)
+        # if "new-group" received
+        if 'new_group' in msg_dict:
+            # cancel membership_check and membership_confirmation tasks
+            for task in self.scheduled_tasks:
+                task.cancel()
+            self.scheduled_tasks = []
+            #can try if time.time > ['gid'] later
+            LOG.info("%i: new_group %f, from %i", self.host.id, msg_dict['gid'], msg_dict['id'])
+            self.members = set()
+            self.group = msg_dict['gid']
+            self.send_present(msg_dict['gid'])
+            LOG.debug("timer for %f", msg_dict['gid'] - time.time() + self.period)
+            self.present_members.add(self.host.id)
+            self.present_members.add(msg_dict['id'])
+            # confirm_time = new_group_time + 2 * self.delta
+            wait_t = msg_dict['gid'] + 2 * self.delta - time.time()
+            confirm_task = th.Timer(wait_t,
+                                    self.__new_group_confirmation,
+                                    args=(msg_dict['gid'],))
+            # self.scheduled_broadcasts[confirm_time] = confirm_task
+            self.scheduled_tasks.append(confirm_task)
+            confirm_task.start()
 
-    def __membership_confirmation_task(self, check_time):
-        LOG.info("\033[95 m%i: members arrived before check %s\033[0m",
-                 self.host.id, self.check_members)
-        if self.check_members != self.cur_members:
+            # check_task = th.Timer(msg_dict['gid'] - time.time() + self.period,
+                                  # self.__membership_check,
+                                  # args=(msg_dict['gid'],))
+            # check_task.start()
+            # self.scheduled_tasks.append(check_task)
+
+        elif 'present' in msg_dict:
+            #TODO check correct group id
+            LOG.info("%i: present %f, from %i", self.host.id, msg_dict['gid'], msg_dict['id'])
+            # self.members.add(msg_dict['id'])
+            self.present_members.add(msg_dict['id'])
+
+        elif 'list' in msg_dict:
+            #TODO check time < O and gamma
+            LOG.info("%i: list received", self.host.id)
+            self.last_r_t = time.time()  #TODO this is O not 0 needs to be fixed
+            if not self.host.id == max(self.members):
+                self.send_list([self.host.id])
+
+    def send_new_group(self, t):
+        """ Sends a reconfigure request for the group consisting of the id """
+        msg_dict = {'new_group': True,
+                    'gid': t,
+                    'id': self.host.id}
+        msg_bytes = json.dumps(msg_dict).encode()
+        msg_size = struct.pack('i', len(msg_bytes))
+        LOG.debug("host%i sending new_group: %f", self.host.id, t)
+        # LOG.debug("host%i sending new_group: %s", self.host.id, msg_bytes)
+        self.atomic_b.broadcast(msg_size + msg_bytes)
+
+    # def __schedule_new_group_confirmation(self, t):
+        # task = th.Timer(
+
+    def __new_group_confirmation(self, check_time):
+        LOG.info("\033[95 m%i: members arrived before confirm %s\033[0m",
+                 self.host.id, self.present_members)
+        if self.present_members != self.members:
             LOG.debug("confirming: UPDATING mems from %s to %s",
-                      self.cur_members, self.check_members)
-            self.cur_members = self.check_members
-            self.cur_group += self.period
-            # reset
+                      self.members, self.present_members)
+            self.members = self.present_members
+            # self.group += self.period
+            # self.group = check_time
+            self.present_members = set([self.host.id])
             self.check_members = set([self.host.id])
         else:
-            # XXX
-            self.cur_group += self.period
-            LOG.debug("%i: confirming: OKAY mems at %s", self.host.id, self.cur_members)
+            LOG.debug("%i: confirming: OKAY mems at %s", self.host.id,
+                      self.members)
             self.check_members = set([self.host.id])
+        # XXX
+        # for key, task in self.scheduled_broadcasts.items():
+            # # if msg[0] <= key:
+            # task.cancel()
+        # self.scheduled_broadcasts = {}
 
-        # schedule next check task; next check at check_time + period
+        for task in self.scheduled_tasks:
+            task.cancel()
+        self.scheduled_tasks = []
+        # self.__membership_check(check_time)
         next_check_time = check_time + self.period
-        next_check_task = th.Timer(next_check_time - time.time() - 1,
-                                   self.__membership_check_task,
+        next_check_task = th.Timer(next_check_time - time.time(),
+                                   self.__membership_check,
                                    args=(next_check_time,))
-        self.scheduled_broadcasts[next_check_time] = next_check_task
+        # self.scheduled_broadcasts[next_check_time] = next_check_task
+        self.scheduled_tasks.append(next_check_task)
         next_check_task.start()
 
+        # schedule next check task; next check at check_time + period
+        # next_check_time = check_time + self.period
+        # next_check_task = th.Timer(next_check_time - time.time() - 1,
+                                   # self.__membership_check_task,
+                                   # args=(next_check_time,))
+        # self.scheduled_broadcasts[next_check_time] = next_check_task
+        # next_check_task.start()
 
-    def __membership_check_task(self, check_time):
-        self.send_broadcast(self.cur_group)
-        confirm_time = check_time + self.delta
-        confirm_task = th.Timer(confirm_time - time.time(),
-                                self.__membership_confirmation_task,
-                                args=(check_time,))
-        self.scheduled_broadcasts[confirm_time] = confirm_task
+    def send_present(self, t):
+        msg_dict = {'present': True,
+                    'gid': t,
+                    'id': self.host.id}
+        msg_bytes = json.dumps(msg_dict).encode()
+        msg_size = struct.pack('i', len(msg_bytes))
+        self.atomic_b.broadcast(msg_size + msg_bytes)
+
+    def send_list(self, members):
+        LOG.debug("host%i sending list %s", self.host.id, members)
+        msg_dict = {'list': True,
+                    'gid': self.group,
+                    'members': list(members)}
+        msg_bytes = json.dumps(msg_dict).encode()
+        msg_size = struct.pack('i', len(msg_bytes))
+        dest = self.get_next_host()
+        if self.host.id == max(self.members):
+            dest = min(self.members)
+        msg = Message(None, msg_size + msg_bytes, -1)
+        msg.hops = -1
+        msg.time = 0
+        msg.host = -1
+        msg.chan = -1
+        LOG.debug("host%i, sending list to host%i", self.host.id, dest)
+        LOG.debug("members: %s", self.members)
+        port = 50000 + (100 * dest) + 1
+        # send on the first channel, abuse the system
+        self.atomic_b.channels[0].socket.sendto(msg.marshal(),
+                                                (socket.gethostbyname(socket.gethostname()), port))
+
+    def get_next_host(self):
+        next_host = None
+        for m in sorted(self.members):
+            if m == self.host.id:
+                next_host = True
+            elif next_host is not None:
+                next_host = m
+                break
+        return next_host
+
+    def get_members(self):
+        """ Returns a list of the most recent members of the group """
+        return self.members
+
+    def __membership_confirmation(self, check_time):
+        #TODO this is probably broken sends in delta check time instead of abs check time
+        LOG.debug("host%i: membership confirm task", self.host.id)
+        #time.time() > check_time:
+        #    return
+        if self.last_r_t + len(self.members) * self.sigma + .1 < check_time:
+            LOG.debug("%i: SENDING NEW GROUP!!!!!!!!!!", self.host.id)
+            new_group_time = time.time() + self.delta
+            self.send_new_group(time.time())
+            # self.send_broadcast(check_time + self.delta, new_group=True)
+            self.present_members.add(self.host.id)
+
+            confirm_time = new_group_time + 2 * self.delta
+            confirm_task = th.Timer(confirm_time - time.time(),
+                                    self.__new_group_confirmation,
+                                    args=(new_group_time,))
+            # self.scheduled_broadcasts[confirm_time] = confirm_task
+            self.scheduled_tasks.append(confirm_task)
+            confirm_task.start()
+
+    def __membership_check(self, check_time):
+        LOG.debug("host%i membership check task", self.host.id)
+        # self.members.add(self.host.id)
+        if self.host.id == max(self.members):
+            self.send_list([self.host.id])
+        gamma = len(self.members) * self.sigma
+        confirm_time = check_time - time.time() + gamma + .1
+        confirm_task = th.Timer(confirm_time,
+                                self.__membership_confirmation,
+                                args=(check_time + gamma,))
+        self.scheduled_tasks.append(confirm_task)
         confirm_task.start()
 
-    def msg_handler(self, msg):
-        """ Handle receipt of broadcasts """
-        msg = struct.unpack(self.msg_fmt, msg.data[:20])
-        # if on time; myclock > V abort
-        # if msg[1] < time.time():
-        # if msg[1] > (time.time() - .2):
-        if True:
-            # LOG.debug("TIME, MYCLOCK: %s, %s", msg[1], time.time() - .2)
-            # if "new-group" received
-            if msg[0]:
-                # cancel broadcasts
-                # LOG.debug("new group %s", self.scheduled_broadcasts)
-                for key, task in self.scheduled_broadcasts.items():
-                    # if msg[0] <= key:
-                    task.cancel()
-                self.scheduled_broadcasts = {}
-
-                LOG.info("%i: new group requested", self.host.id)
-                self.cur_group = msg[1]
-                self.cur_period = 0
-                self.check_members = set([self.host.id, msg[2]])
-                self.send_broadcast(msg[1])
-
-                # schedule check for the new group req
-                confirm_task = th.Timer(2 * self.delta,
-                                        self.__membership_confirmation_task,
-                                        args=(msg[1],))
-
-                confirm_task.start()
-
-            # if "present" received
-            else:
-                LOG.info("%i: member added %d", self.host.id, msg[2])
-                # put the member in the group
-                self.check_members.add(msg[2])
-                # LOG.info("%i: members after add %s", self.host.id,
-                         # self.check_members)
-        else:
-            LOG.info("LATE %s, %s", msg[1], time.time())
+        mem_check_time = check_time - time.time() + self.period
+        mem_check_task = th.Timer(mem_check_time,
+                                  self.__membership_check,
+                                  args=(check_time + self.period,))
+        self.scheduled_tasks.append(mem_check_task)
+        mem_check_task.start()
