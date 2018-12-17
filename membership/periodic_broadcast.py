@@ -14,7 +14,6 @@ class PeriodicBroadcastGroup(object):
         self.period = period
 
         self.delta = broadcaster.delivery_delay
-        self.past_members = set()
         self.cur_members = set()
         self.check_members = set()
 
@@ -39,6 +38,7 @@ class PeriodicBroadcastGroup(object):
             confirm_task = th.Timer(confirm_time - time.time(),
                                     self.__membership_confirmation_task,
                                     args=(new_group_time,))
+            self.scheduled_broadcasts[confirm_time] = confirm_task
             confirm_task.start()
 
     def get_members(self):
@@ -118,6 +118,7 @@ class PeriodicBroadcastGroup(object):
         confirm_task = th.Timer(confirm_time - time.time(),
                                 self.__membership_confirmation_task,
                                 args=(check_time,))
+        self.scheduled_broadcasts[confirm_time] = confirm_task
         confirm_task.start()
 
     def msg_handler(self, msg):
@@ -125,12 +126,15 @@ class PeriodicBroadcastGroup(object):
         msg = struct.unpack(self.msg_fmt, msg.data[:20])
         # if on time; myclock > V abort
         # if msg[1] < time.time():
-        # if msg[1] > time.time():
+        # if msg[1] > (time.time() - .2):
         if True:
+            # LOG.debug("TIME, MYCLOCK: %s, %s", msg[1], time.time() - .2)
             # if "new-group" received
             if msg[0]:
                 # cancel broadcasts
+                # LOG.debug("new group %s", self.scheduled_broadcasts)
                 for key, task in self.scheduled_broadcasts.items():
+                    # if msg[0] <= key:
                     task.cancel()
                 self.scheduled_broadcasts = {}
 
@@ -138,7 +142,6 @@ class PeriodicBroadcastGroup(object):
                 self.cur_group = msg[1]
                 self.cur_period = 0
                 self.check_members = set([self.host.id, msg[2]])
-                self.past_members = set()
                 self.send_broadcast(msg[1])
 
                 # schedule check for the new group req
