@@ -95,8 +95,8 @@ class NeighborSurveillanceGroup(object):
             #TODO check time < O and gamma
             LOG.info("%i: list received", self.host.id)
             self.last_r_t = time.time()  #TODO this is O not 0 needs to be fixed
-            if not self.host.id == max(self.members):
-                self.send_list([self.host.id])
+            # if not self.host.id == max(self.members):
+                # self.send_list([self.host.id])
 
     def send_new_group(self, t):
         """ Sends a reconfigure request for the group consisting of the id """
@@ -205,7 +205,7 @@ class NeighborSurveillanceGroup(object):
         if self.last_r_t + len(self.members) * self.sigma + .1 < check_time:
             LOG.debug("%i: SENDING NEW GROUP!!!!!!!!!!", self.host.id)
             new_group_time = time.time() + self.delta
-            self.send_new_group(time.time())
+            self.send_new_group(new_group_time)
             # self.send_broadcast(check_time + self.delta, new_group=True)
             self.present_members.add(self.host.id)
 
@@ -220,9 +220,9 @@ class NeighborSurveillanceGroup(object):
     def __membership_check(self, check_time):
         LOG.debug("host%i membership check task", self.host.id)
         # self.members.add(self.host.id)
-        if self.host.id == max(self.members):
-            self.send_list([self.host.id])
-        gamma = len(self.members) * self.sigma
+        # if self.host.id == max(self.members):
+        self.send_list([self.host.id])
+        gamma = self.sigma
         confirm_time = check_time - time.time() + gamma + .1
         confirm_task = th.Timer(confirm_time,
                                 self.__membership_confirmation,
