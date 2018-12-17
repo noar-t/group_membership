@@ -18,7 +18,7 @@ class AttendanceListGroup(object):
         self.sigma = 1 #TODO change
 
         # time for last list receipt
-        self.last_list = -1
+        self.last_r_t = -1
         self.scheduled_tasks = list()
         self.group = None
 
@@ -26,9 +26,8 @@ class AttendanceListGroup(object):
         self.__r_thread.start()
 
         time.sleep(1)
-        if join:
-            new_group_time = time.time() + self.delta
-            self.send_new_group(new_group_time)
+        new_group_time = time.time() + self.delta
+        self.send_new_group(new_group_time)
 
 
 
@@ -69,7 +68,7 @@ class AttendanceListGroup(object):
         elif 'list' in msg_dict:
             #TODO check time < O and gamma
             LOG.info("list received")
-            self.last_list = time.time() #TODO this is O not 0 needs to be fixed
+            self.last_r_t = time.time() #TODO this is O not 0 needs to be fixed
             if not host.id == max(self.members):
                 self.send_list(msg_dict['members'].add(self.host.id))
 
@@ -102,8 +101,9 @@ class AttendanceListGroup(object):
         msg = Message(None, msg_size + msg_bytes, -1)
         msg.hops = -1
         msg.time = time.time()
-        msg.host = self.host.id
+        msg.host = -1
         msg.chan = -1
+        LOG.debug("host%i, sending list to host%i", self.host.id, dest)
         port = 50000 + (100 * dest) + 1
         # send on the first channel, abuse the system
         self.atomic_b.channels[0].socket.sendto(msg.marshal(), ('localhost', port))
@@ -126,9 +126,10 @@ class AttendanceListGroup(object):
 
     def __membership_confirmation(self, check_time):
         #TODO this is probably broken sends in delta check time instead of abs check time
-        if time.time() > check_time:
-            return
-        if self.list_r_t + len(self.members)*self.sigma < check_time:
+        LOG.debug("host%i membership confirm tast", self.host.id)
+        #if time.time() > check_time:
+        #    return
+        if self.last_r_t + len(self.members)*self.sigma < check_time:
             self.send_new_group(time.time())
 
 
@@ -136,7 +137,7 @@ class AttendanceListGroup(object):
         LOG.debug("host%i membership check task", self.host.id)
         self.members.add(self.host.id)
         if self.host.id == max(self.members):
-            self.send_list(self.members)
+            self.send_list([self.host.id])
         gamma = len(self.members)*self.sigma
         confirm_time = check_time - time.time() + gamma
         confirm_task = th.Timer(confirm_time,
