@@ -1,43 +1,78 @@
 import struct
-import select
-import socket
-import json
 import time
-import os
 import threading as th
-from membership.atomic_broadcast.atomic_broadcast import AtomicBroadcaster
-from membership.atomic_broadcast.channel import Message
+from membership import LOG
+
 
 class AttendanceListGroup(object):
 
-    def __init__(self, broadcaster, host, period=5):
-        self.cur_members = list()
-        self.past_members = list()
-        self.cur_group = 0
-
-        self.period = period
-        self.cur_period = 0
-        self.list_recv = False
-
+    def __init__(self, broadcaster, host, join, period=10):
         self.host = host
-
-        # self.atomic_b = AtomicBroadcaster(10, ['TODO'], 10)
         self.atomic_b = broadcaster
+        self.period = period
 
-        self.__r_thread = th.Thread(target=self.__recv_worker)
+        self.members = set()
+        self.delta = broadcaster.delivery_delay
+        self.sigma = 1 #TODO change
+
+        # time for last list receipt
+        self.last_list = -1
+        self.scheduled_tasks = list()
+
+        self.__r_thread = th.Thread(target=__recv_worker)
         self.__r_thread.start()
 
+        time.sleep(1)
+        if join:
+            new_group_time = time.time() + self.delta
+            self.send_new_group(new_group_time)
 
-    def send_reconfigure(self):
+
+
+    def __recv_worker(self):
+        """ Work loop for worker """
+        while True:
+            msg = self.atomic_b.wait_for_msg(None)
+            self.msg_handler(msg)
+
+    def msg_handler(self, msg):
+        """ Handle received message """
+        msg_size = struct.unpack('i', msg[0:4])
+        msg_dict = json.loads(msg[4:5+msg_size[0]])
+
+        # if "new-group" received
+        if 'new_group' in msg_dict:
+            #can try if time.time > ['gid'] later
+            self.members = set()
+            for task in self.scheduled_tasks:
+                task.cancel()
+            self.send_present(msg_dict['gid'])
+            check_task = th.Timer(msg_dict['gid'] + self.period,
+                                  self.__membership_check,
+                                  args=(msg_dict['gid'],))
+            check_task.start()
+            self.scheduled_tasks.append(check_task)
+
+        elif 'present' in msg_dict:
+            #TODO check correct group id
+            LOG.info("Member %i added to %d", msg_dict['id'], msg['gid'])
+            self.members.add(msg_dict['id'])
+
+        elif 'list' in msg_dict:
+            #TODO check time < O and gamma
+            self.last_list = time.time() #TODO this is O not 0 needs to be fixed
+            if not host.id == max(self.members):
+                self.send_list(msg_dict['members'])
+
+    def send_new_group(self, t):
         """ Sends a reconfigure request for the group consisting of the id """
-        # reconfigure message
-        t = time.time()
-        msg_dict = {'recon' : True,
+        msg_dict = {'new_group' : True,
                     'gid' : t }
         msg_bytes = json.dumps(msg_dict).encode()
         msg_size = struct.pack('i', len(msg_bytes))
         self.atomic_b.broadcast(msg_size + msg_bytes)
-        # present message
+
+    def send_present(self, t):
         msg_dict = {'present' : True,
                     'gid' : t,
                     'id' : self.host.id }
@@ -45,75 +80,10 @@ class AttendanceListGroup(object):
         msg_size = struct.pack('i', len(msg_bytes))
         self.atomic_b.broadcast(msg_size + msg_bytes)
 
-    def __recv_worker(self):
-        # RECONFIGURE UPON INIT
-        self.send_reconfigure()
-        msg = None
-
-        while True:
-            # If first host start list propogation
-            if self.cur_period > 0:
-                if self.host.id == min(self.cur_members):
-                    self.forward_list(list())
-
-            remaining_t = time.time() % self.period
-            LOG.debug("remaining %f", remaining_t)
-            msg = self.atomic_b.wait_for_message(remaining_t)
-
-            # period is over
-            if msg is None:
-                LOG.debug("cur memeber %s", self.cur_members)
-                # TODO fix reconfigure on first period due to no list also add 'leader'
-                if not self.list_recv and not self.cur_period == 0:
-                    self.send_reconfigure()
-            else:
-                self.msg_handler(msg)
-
-    def msg_handler(self, msg):
-        """ Handle receipt of broadcasts """
-        t = time.time()
-        # received a message in the form form (delivery time, msg)
-        msg_t = msg[0]
-        rem_t = ((msg_t - self.cur_group) - (self.period * self.cur_period))
-
-        # message not ready to be delivered but will be this period
-        if t < msg_t and rem_t < self.period:
-            self.msg_handler(self.atomic_b.wait_for_message(rem_t))
-            # This might be racey
-            msg = self.atomic_b.message_list.pop()
-
-        msg_size = struct.unpack('i', msg[1][0:4])
-        msg_dict = json.loads(msg[1][4:5+msg_size[0]])
-        # if on time; myclock > V abort
-        if msg_dict['gid'] <= time.time():
-            # if reconfigure
-            if 'recon' in msg_dict:
-                # Join the new group
-                self.cur_period = 0
-                self.cur_group =  msg_dict['gid']
-                self.past_members = list()
-                self.cur_members = [self.host.id]
-
-            elif 'present' in msg_dict:
-                # present message TODO check group id matches
-                if msg_dict['gid'] == self.cur_group:
-                    self.cur_members.append(msg['id'])
-
-            # forward list only if its current group
-            elif 'list' in msg_dict:
-                if msg_dict['gid'] == self.cur_group:
-                    self.list_recv = True
-                    if self.host.id == max(self.cur_members):
-                        self.forward_list(msg_dict['members'])
-
-
-
-        # we can either use select or socket.settimeout() in order to wait
-        # period time to receive a list before issuing reconfiguration request
-    def forward_list(self, members):
+    def send_list(self, members):
         msg_dict = {'list' : True,
                     'gid' : self.cur_group,
-                    'members' : members.append(self.host.id)}
+                    'members' : members}
         msg_bytes = json.dumps(msg_dict).encode()
         msg_size = struct.pack('i', len(msg_bytes))
         dest = self.get_next_host()
@@ -123,12 +93,45 @@ class AttendanceListGroup(object):
         # send on the first channel, abuse the system
         self.atomic_b.channels[0].sendto(msg.marshal(), ('localhost', port))
 
-    def get_next_host(self):
-        my_id = self.host.id
-        next_host = 999999
-        for h_id in self.cur_members:
-            if h_id > my_id and h_id < next_host:
-                next_host = h_id
+    def get_next_host():
+        next_host = None
+        for m in sorted(self.members):
+            if m == self.host.id:
+                next_host = True
+            elif not next_host is None:
+                next_host = m
+                break
         return next_host
 
 
+    def get_members(self):
+        """ Returns a list of the most recent members of the group """
+        return self.members
+
+
+    def __membership_confirmation(self, check_time):
+        #TODO this is probably broken sends in delta check time instead of abs check time
+        if time.time() > check_time:
+            return
+        if self.list_r_t + len(self.members)*self.sigma < check_time:
+            self.send_new_group(time.time())
+
+
+    def __membership_check(self, check_time):
+        self.members.add(self.host.id)
+        if self.host.id == max(self.members):
+            self.send_list(self.members)
+        gamma = len(self.members)*self.sigma
+        confirm_time = check_time - time.time() + gamma
+        confirm_task = th.Timer(confirm_time,
+                                self.__membership_confirmation,
+                                args=(check_time + gamma,))
+        self.scheduled_tasks.append(confim_task)
+        confirm_task.start()
+
+        mem_check_time = check_time - time.time() + self.period
+        mem_check_task = th.Timer(mem_check_time,
+                                self.__membership_check,
+                                args=(check_time + self.period,))
+        self.scheduled_tasks.append(mem_check_task)
+        mem_check_task.start()
