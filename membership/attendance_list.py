@@ -207,7 +207,7 @@ class AttendanceListGroup(object):
         if self.last_r_t + len(self.members) * self.sigma + .1 < check_time:
             LOG.debug("%i: SENDING NEW GROUP!!!!!!!!!!", self.host.id)
             new_group_time = time.time() + self.delta
-            self.send_new_group(time.time())
+            self.send_new_group(new_group_time)
             # self.send_broadcast(check_time + self.delta, new_group=True)
             self.present_members.add(self.host.id)
 
