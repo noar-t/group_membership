@@ -26,6 +26,8 @@ class PeriodicBroadcastGroup(object):
 
         time.sleep(2)
         if join:
+            # group should be V + pi because of reconfiguration latency
+            # create new group upon initialization
             # self.atomic_b.delivery_delay += 1
             new_group_time = time.time() + self.delta
             self.cur_group = new_group_time
@@ -46,32 +48,8 @@ class PeriodicBroadcastGroup(object):
         return self.cur_members
 
     def __broadcast_worker(self):
-        """ Broadcasts present every period time units """
-        # group should be V + pi because of reconfiguration latency
-        # create new group upon initialization
-        # self.atomic_b.delivery_delay += 1
-        # new_group_time = time.time() + self.atomic_b.delivery_delay
-        # self.cur_group = new_group_time
-        # self.send_broadcast(new_group_time, new_group=True)
-        # self.check_members.add(self.host.id)
-
-        # # scheulde a confirm for the new group. and then schedule a new check
-        # # for next period
-        # confirm_task = th.Timer(self.atomic_b.delivery_delay,
-                                # self.__membership_confirmation_task,
-                                # args=(new_group_time,))
-        # confirm_task.start()
-
-
-
-
-        # check_time = new_group_time + self.period
-        # check_task = th.Timer(check_time, self.__membership_check_task,
-                              # args=(check_time,))
-        # self.scheduled_broadcasts[check_time] = check_task
-        # check_task.start()
-
-        # Processs messages and broadcast present
+        """ process messages """
+        # Processs messages
         while True:
             msg = self.atomic_b.wait_for_msg(None)
             self.msg_handler(msg)
@@ -114,7 +92,6 @@ class PeriodicBroadcastGroup(object):
                                    args=(next_check_time,))
         self.scheduled_broadcasts[next_check_time] = next_check_task
         next_check_task.start()
-
 
     def __membership_check_task(self, check_time):
         self.send_broadcast(self.cur_group)
