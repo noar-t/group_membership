@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from subprocess import Popen, PIPE
 from membership import LOG
 
@@ -16,7 +17,7 @@ class Cluster(object):
         for id in range(self.args.count):
             self.add(id, init=True)
 
-    def add(self, id, ip='127.0.1.1', init=False):
+    def add(self, id, ip='127.0.1.1', init=False, join=False):
         """
         adds server id to the cluster
         :id: new server's id
@@ -33,7 +34,12 @@ class Cluster(object):
         # args += [ip + ':' + str(id) for id in self.servers]
         # if init:
             # args += [ip + ':' + str(id) for id in range(self.args.count)]
-        args += [ip + ':' + str(id) for id in range(3)]
+        args += [ip + ':' + str(i) for i in range(3)]
+
+        if init and id == 0:
+            args += ['-j']
+        if join:
+            args += ['-j']
         # else:
             # args += [ip + ':' + str(id) for id in self.servers]
 
@@ -79,7 +85,15 @@ class Cluster(object):
         if id not in self.servers:
             LOG.error("server %i does not exists", id)
             return False
-        LOG.info("forcibly termination server %i", id)
+        buf = 'destroy'
+        LOG.debug("sending %s to server %i", buf, id)
+        buf += '\n'
+        self.servers[id]['process'].stdin.write(buf.encode())
+        self.servers[id]['process'].stdin.flush()
+
+        time.sleep(1)
+
+        LOG.info("forcibly terminating server %i", id)
         self.servers[id]['log'].close()
         self.servers[id]['process'].kill()
         del self.servers[id]

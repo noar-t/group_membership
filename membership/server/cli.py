@@ -14,7 +14,10 @@ ARG_SETS = {
           'metavar': 'INT', 'type': int, 'action': 'store'}),
         (('-s', '--servers'),
          {'help': 'list of servers in the cluster', 'metavar': 'IP:ID',
-          'nargs': '*'}),),
+          'nargs': '*'}),
+        (('-s', '--join'),
+         {'help': 'send join cmd after starting', 'required': True,
+          'action': 'store_true'}),),
     'BC': (
         (('-m', '--message'),
          {'help': 'message to broadcast', 'required': True,
@@ -27,6 +30,7 @@ ARG_SETS = {
 SUBCMDS = {
     'bc': ('run server program', ('BC', 'CONFIG')),
     'config': ('run cluster program', ('CONFIG',)),
+    'destroy': ('kill server program', ()),
 }
 
 

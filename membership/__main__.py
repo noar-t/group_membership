@@ -11,7 +11,7 @@ def add_server(c, *args):
     """
     # FIXME
     id = int(args[0])
-    c.add(id)
+    c.add(id, join=True)
 
 
 def remove_server(c, *args):

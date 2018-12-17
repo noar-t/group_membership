@@ -12,6 +12,8 @@ ARG_SETS = {
         (('-i', '--id'),
          {'help': 'globally unique id for the server', 'required': True,
           'metavar': 'INT', 'type': int, 'action': 'store'}),
+        (('-j', '--join'),
+         {'help': 'send join cmd after starting', 'action': 'store_true'}),
         (('-s', '--servers'),
          {'help': 'list of servers in the cluster', 'metavar': 'IP:ID',
           'nargs': '*'}),),

@@ -8,7 +8,7 @@ class PeriodicBroadcastGroup(object):
 
     msg_fmt = '?di'  # new-group(t/f), groupid, id
 
-    def __init__(self, broadcaster, host, period=10):
+    def __init__(self, broadcaster, host, join, period=10):
         self.host = host
         self.atomic_b = broadcaster
         self.period = period
@@ -26,7 +26,7 @@ class PeriodicBroadcastGroup(object):
         self.__b_thread.start()
 
         time.sleep(2)
-        if self.host.id == 0:
+        if join:
             # self.atomic_b.delivery_delay += 1
             new_group_time = time.time() + self.delta
             self.cur_group = new_group_time

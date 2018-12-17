@@ -38,7 +38,8 @@ class Server(object):
         # check if we running an membership protocol
         if args.protocol == 'periodic':
             self.periodic_group = PeriodicBroadcastGroup(self.broadcaster,
-                                                         self.servers[args.id])
+                                                         self.servers[args.id],
+                                                         args.join)
         elif args.protocol == 'list':
             self.attendance = AttendanceListGroup(self.broadcaster,
                                                   self.servers[args.id])
@@ -48,6 +49,7 @@ class Server(object):
         self.commands = {
             'bc': self.__test_broadcast,
             'config': self.__configure_channels,
+            'destroy': self.__destroy,
         }
 
         self.parser = cli.configure_parser()
@@ -83,6 +85,9 @@ class Server(object):
                 config = json.loads(config)
                 LOG.debug("json loaded %s", config)
         self.broadcaster.configure(config)
+
+    def __destroy(self, args):
+        self.broadcaster.destroy()
 
     def start(self):
         self.event_loop(self.port)

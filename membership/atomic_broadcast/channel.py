@@ -56,6 +56,10 @@ class Channel(object):
                       # addr, msg.chan)
             self.msg_queue.put(msg)
 
+    def destroy(self):
+        self.socket.shutdown(socket.SHUT_RDWR)
+        self.socket.close()
+
 
 class Message(object):
     def __init__(self, host, data, chan, copy=False):

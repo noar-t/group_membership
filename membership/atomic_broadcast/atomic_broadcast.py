@@ -157,6 +157,11 @@ class AtomicBroadcaster(object):
                     break
                 c.send(host.ip, host.port, msg)
 
+    def destroy(self):
+        for chan in self.channels:
+            chan.destroy()
+        LOG.info("destroying broadcaster")
+
 
 class MessageList(object):
     """ Message queue to deliver messages at the correct time """
